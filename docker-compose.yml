@@ -3,7 +3,7 @@ services:
     build: .
     container_name: atomhub
     ports:
-      - "8080:8080"
+      - "${ATOMHUB_PUBLIC_PORT:-8080}:8080"
     environment:
       ATOMHUB_HTTP_ADDR: ":8080"
       ATOMHUB_DB_PATH: "/app/data/atomhub.db"

@@ -7,6 +7,7 @@ import HealthPage from './pages/HealthPage';
 import KeysPage from './pages/KeysPage';
 import LoginPage from './pages/LoginPage';
 import ModelsPage from './pages/ModelsPage';
+import RequestsPage from './pages/RequestsPage';
 
 export default function App(): JSX.Element {
   const [session, setSession] = useState<SessionState | null>(null);
@@ -64,6 +65,7 @@ export default function App(): JSX.Element {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="keys" element={<KeysPage />} />
         <Route path="models" element={<ModelsPage />} />
+        <Route path="requests" element={<RequestsPage />} />
         <Route path="health" element={<HealthPage />} />
       </Route>
       <Route path="*" element={<Navigate to={hasSession ? '/dashboard' : '/login'} replace />} />

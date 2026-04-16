@@ -24,6 +24,7 @@ func (a *App) routes() http.Handler {
 	adminMux.HandleFunc("POST /admin/keys/{id}/probe", a.handleProbeKey)
 	adminMux.HandleFunc("GET /admin/models", a.handleModels)
 	adminMux.HandleFunc("GET /admin/health", a.handleHealth)
+	adminMux.HandleFunc("GET /admin/requests", a.handleRequests)
 
 	mux.Handle("/admin/", auth.RequireAdmin(a.sessionManager, adminMux))
 

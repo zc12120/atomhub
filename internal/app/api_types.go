@@ -113,3 +113,37 @@ type adminDashboardResponse struct {
 	Summary any                `json:"summary"`
 	Health  adminHealthSummary `json:"health"`
 }
+
+type adminRequestLogItem struct {
+	ID               int64     `json:"id"`
+	KeyID            int64     `json:"key_id"`
+	KeyLabel         string    `json:"key_label,omitempty"`
+	Provider         string    `json:"provider,omitempty"`
+	Model            string    `json:"model"`
+	PromptTokens     int64     `json:"prompt_tokens"`
+	CompletionTokens int64     `json:"completion_tokens"`
+	TotalTokens      int64     `json:"total_tokens"`
+	LatencyMS        int64     `json:"latency_ms"`
+	Status           string    `json:"status"`
+	ErrorMessage     string    `json:"error_message,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+type adminRequestsSummary struct {
+	RequestCount     int64 `json:"request_count"`
+	ErrorCount       int64 `json:"error_count"`
+	PromptTokens     int64 `json:"prompt_tokens"`
+	CompletionTokens int64 `json:"completion_tokens"`
+	TotalTokens      int64 `json:"total_tokens"`
+}
+
+type adminRequestsFilters struct {
+	Model  string   `json:"model,omitempty"`
+	Models []string `json:"models"`
+}
+
+type adminRequestsResponse struct {
+	Items   []adminRequestLogItem `json:"items"`
+	Summary adminRequestsSummary  `json:"summary"`
+	Filters adminRequestsFilters  `json:"filters"`
+}

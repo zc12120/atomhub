@@ -10,6 +10,7 @@ AtomHub is a self-hosted AI gateway and admin dashboard.
 - Load-balances requests across healthy keys that support the same model
 - Cools down failing keys and retries on other eligible keys
 - Persists token usage and shows per-model prompt/completion/total token totals in a web dashboard
+- Shows recent request records with per-model token usage breakdowns
 - Protects the admin UI with a single-admin login session
 
 ## Current gateway support
@@ -27,12 +28,14 @@ After login, the web UI provides:
 - Dashboard: per-model token usage totals and overall totals
 - Keys: create keys, edit keys, enable/disable keys, probe keys, delete keys, and view health/errors
 - Models: see discovered model pools per provider
+- Requests: inspect recent request logs, errors, and per-model usage shares
 - Health: see healthy/unhealthy key counts and last errors
 
 ## Configuration
 All runtime configuration is provided through environment variables:
 
 - `ATOMHUB_HTTP_ADDR`
+- `ATOMHUB_PUBLIC_PORT`
 - `ATOMHUB_DB_PATH`
 - `ATOMHUB_SESSION_SECRET`
 - `ATOMHUB_SESSION_TTL`
@@ -78,6 +81,12 @@ docker compose up --build -d
 ```
 
 Default exposed port: `8080`
+
+To expose a different host port, set `ATOMHUB_PUBLIC_PORT`, for example:
+
+```bash
+ATOMHUB_PUBLIC_PORT=18081 docker compose up --build -d
+```
 
 ## Using the gateway
 ### List models

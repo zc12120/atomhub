@@ -81,6 +81,38 @@ export interface HealthResponse {
   keys: AdminKey[];
 }
 
+export interface AdminRequestLog {
+  id: number;
+  key_id: number;
+  key_label?: string;
+  provider?: string;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  latency_ms: number;
+  status: string;
+  error_message?: string;
+  created_at: string;
+}
+
+export interface RequestsSummary {
+  request_count: number;
+  error_count: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+export interface RequestsResponse {
+  items: AdminRequestLog[];
+  summary: RequestsSummary;
+  filters: {
+    model?: string;
+    models: string[];
+  };
+}
+
 interface LoginPayload {
   username: string;
   password: string;
@@ -184,5 +216,10 @@ export const api = {
 
   getHealth(): Promise<HealthResponse> {
     return requestJson('/admin/health');
+  },
+
+  getRequests(model?: string): Promise<RequestsResponse> {
+    const query = model ? `?model=${encodeURIComponent(model)}` : '';
+    return requestJson(`/admin/requests${query}`);
   }
 };

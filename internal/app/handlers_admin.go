@@ -274,6 +274,78 @@ func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *App) handleRequests(w http.ResponseWriter, r *http.Request) {
+	modelFilter := strings.TrimSpace(r.URL.Query().Get("model"))
+	limit := 100
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		if parsed, err := strconv.Atoi(rawLimit); err == nil && parsed > 0 {
+			if parsed > 500 {
+				parsed = 500
+			}
+			limit = parsed
+		}
+	}
+
+	logs, err := a.logStore.ListRecent(r.Context(), limit)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	keys, err := a.keyStore.List(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	keyByID := make(map[int64]types.UpstreamKey, len(keys))
+	modelSet := make(map[string]struct{})
+	for _, key := range keys {
+		keyByID[key.ID] = key
+	}
+	items := make([]adminRequestLogItem, 0, len(logs))
+	var summary adminRequestsSummary
+	for _, entry := range logs {
+		modelSet[entry.Model] = struct{}{}
+		if modelFilter != "" && entry.Model != modelFilter {
+			continue
+		}
+		key := keyByID[entry.KeyID]
+		items = append(items, adminRequestLogItem{
+			ID:               entry.ID,
+			KeyID:            entry.KeyID,
+			KeyLabel:         key.Name,
+			Provider:         string(key.Provider),
+			Model:            entry.Model,
+			PromptTokens:     entry.PromptTokens,
+			CompletionTokens: entry.CompletionTokens,
+			TotalTokens:      entry.TotalTokens,
+			LatencyMS:        entry.LatencyMS,
+			Status:           entry.Status,
+			ErrorMessage:     entry.ErrorMessage,
+			CreatedAt:        entry.CreatedAt,
+		})
+		summary.RequestCount++
+		summary.PromptTokens += entry.PromptTokens
+		summary.CompletionTokens += entry.CompletionTokens
+		summary.TotalTokens += entry.TotalTokens
+		if entry.Status != "ok" {
+			summary.ErrorCount++
+		}
+	}
+
+	models := make([]string, 0, len(modelSet))
+	for model := range modelSet {
+		models = append(models, model)
+	}
+	sort.Strings(models)
+
+	writeJSON(w, http.StatusOK, adminRequestsResponse{
+		Items:   items,
+		Summary: summary,
+		Filters: adminRequestsFilters{Model: modelFilter, Models: models},
+	})
+}
+
 func (a *App) listAdminKeys(r *http.Request) ([]adminKeyItem, error) {
 	keys, err := a.keyStore.List(r.Context())
 	if err != nil {
