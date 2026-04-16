@@ -15,11 +15,12 @@ import (
 var ErrDownstreamKeyNotFound = errors.New("downstream key not found")
 
 type DownstreamKeyStore struct {
-	db *sql.DB
+	db     *sql.DB
+	secret string
 }
 
-func NewDownstreamKeyStore(db *sql.DB) *DownstreamKeyStore {
-	return &DownstreamKeyStore{db: db}
+func NewDownstreamKeyStore(db *sql.DB, secret string) *DownstreamKeyStore {
+	return &DownstreamKeyStore{db: db, secret: secret}
 }
 
 func (s *DownstreamKeyStore) Create(ctx context.Context, key types.DownstreamKey) (types.DownstreamKey, string, error) {
@@ -32,17 +33,22 @@ func (s *DownstreamKeyStore) Create(ctx context.Context, key types.DownstreamKey
 	if err != nil {
 		return types.DownstreamKey{}, "", err
 	}
+	encryptedToken, err := internalauth.EncryptDownstreamToken(s.secret, token)
+	if err != nil {
+		return types.DownstreamKey{}, "", err
+	}
 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	res, err := s.db.ExecContext(
 		ctx,
 		`insert into downstream_keys (
-			name, token_prefix, token_hash, enabled, request_count,
+			name, token_prefix, token_hash, encrypted_token, enabled, request_count,
 			prompt_tokens, completion_tokens, total_tokens, created_at, updated_at
-		) values (?, ?, ?, ?, 0, 0, 0, 0, ?, ?)`,
+		) values (?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?)`,
 		name,
 		tokenPrefix,
 		tokenHash,
+		encryptedToken,
 		boolToInt(key.Enabled),
 		now,
 		now,
@@ -66,7 +72,7 @@ func (s *DownstreamKeyStore) Create(ctx context.Context, key types.DownstreamKey
 func (s *DownstreamKeyStore) Get(ctx context.Context, id int64) (types.DownstreamKey, error) {
 	row := s.db.QueryRowContext(
 		ctx,
-		`select id, name, token_prefix, token_hash, enabled, last_used_at,
+		`select id, name, token_prefix, token_hash, encrypted_token, enabled, last_used_at,
 		        request_count, prompt_tokens, completion_tokens, total_tokens,
 		        created_at, updated_at
 		 from downstream_keys where id = ?`,
@@ -85,7 +91,7 @@ func (s *DownstreamKeyStore) Get(ctx context.Context, id int64) (types.Downstrea
 func (s *DownstreamKeyStore) FindByToken(ctx context.Context, token string) (types.DownstreamKey, error) {
 	row := s.db.QueryRowContext(
 		ctx,
-		`select id, name, token_prefix, token_hash, enabled, last_used_at,
+		`select id, name, token_prefix, token_hash, encrypted_token, enabled, last_used_at,
 		        request_count, prompt_tokens, completion_tokens, total_tokens,
 		        created_at, updated_at
 		 from downstream_keys
@@ -105,7 +111,7 @@ func (s *DownstreamKeyStore) FindByToken(ctx context.Context, token string) (typ
 func (s *DownstreamKeyStore) List(ctx context.Context) ([]types.DownstreamKey, error) {
 	rows, err := s.db.QueryContext(
 		ctx,
-		`select id, name, token_prefix, token_hash, enabled, last_used_at,
+		`select id, name, token_prefix, token_hash, encrypted_token, enabled, last_used_at,
 		        request_count, prompt_tokens, completion_tokens, total_tokens,
 		        created_at, updated_at
 		 from downstream_keys
@@ -177,6 +183,58 @@ func (s *DownstreamKeyStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (s *DownstreamKeyStore) Reveal(ctx context.Context, id int64) (string, error) {
+	key, err := s.Get(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(key.EncryptedToken) == "" {
+		return "", errors.New("downstream key was created before encrypted storage; please regenerate it")
+	}
+	return internalauth.DecryptDownstreamToken(s.secret, key.EncryptedToken)
+}
+
+func (s *DownstreamKeyStore) Regenerate(ctx context.Context, id int64) (types.DownstreamKey, string, error) {
+	existing, err := s.Get(ctx, id)
+	if err != nil {
+		return types.DownstreamKey{}, "", err
+	}
+	token, tokenPrefix, tokenHash, err := internalauth.GenerateDownstreamToken()
+	if err != nil {
+		return types.DownstreamKey{}, "", err
+	}
+	encryptedToken, err := internalauth.EncryptDownstreamToken(s.secret, token)
+	if err != nil {
+		return types.DownstreamKey{}, "", err
+	}
+	res, err := s.db.ExecContext(
+		ctx,
+		`update downstream_keys
+		 set token_prefix = ?, token_hash = ?, encrypted_token = ?, updated_at = ?
+		 where id = ?`,
+		tokenPrefix,
+		tokenHash,
+		encryptedToken,
+		time.Now().UTC().Format(time.RFC3339Nano),
+		id,
+	)
+	if err != nil {
+		return types.DownstreamKey{}, "", err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return types.DownstreamKey{}, "", err
+	}
+	if rows == 0 {
+		return types.DownstreamKey{}, "", ErrDownstreamKeyNotFound
+	}
+	refreshed, err := s.Get(ctx, existing.ID)
+	if err != nil {
+		return types.DownstreamKey{}, "", err
+	}
+	return refreshed, token, nil
+}
+
 func (s *DownstreamKeyStore) RecordUsage(ctx context.Context, id int64, usage types.UsageTokens, usedAt time.Time) error {
 	if id == 0 {
 		return nil
@@ -203,17 +261,19 @@ func (s *DownstreamKeyStore) RecordUsage(ctx context.Context, id int64, usage ty
 
 func scanDownstreamKey(scanner rowScanner) (types.DownstreamKey, error) {
 	var (
-		key         types.DownstreamKey
-		enabledInt  int
-		lastUsedRaw sql.NullString
-		createdRaw  string
-		updatedRaw  string
+		key            types.DownstreamKey
+		enabledInt     int
+		encryptedToken sql.NullString
+		lastUsedRaw    sql.NullString
+		createdRaw     string
+		updatedRaw     string
 	)
 	if err := scanner.Scan(
 		&key.ID,
 		&key.Name,
 		&key.TokenPrefix,
 		&key.TokenHash,
+		&encryptedToken,
 		&enabledInt,
 		&lastUsedRaw,
 		&key.RequestCount,
@@ -240,6 +300,7 @@ func scanDownstreamKey(scanner rowScanner) (types.DownstreamKey, error) {
 	}
 
 	key.Enabled = enabledInt == 1
+	key.EncryptedToken = strings.TrimSpace(encryptedToken.String)
 	key.LastUsedAt = lastUsedAt
 	key.CreatedAt = createdAt
 	key.UpdatedAt = updatedAt

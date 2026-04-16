@@ -52,6 +52,7 @@ type DownstreamKey struct {
 	Name             string     `json:"name"`
 	TokenPrefix      string     `json:"token_prefix"`
 	TokenHash        string     `json:"token_hash,omitempty"`
+	EncryptedToken   string     `json:"-"`
 	Enabled          bool       `json:"enabled"`
 	LastUsedAt       *time.Time `json:"last_used_at,omitempty"`
 	RequestCount     int64      `json:"request_count"`

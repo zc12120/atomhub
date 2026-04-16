@@ -27,6 +27,23 @@ func TestGenerateDownstreamTokenAndHash(t *testing.T) {
 	}
 }
 
+func TestEncryptAndDecryptDownstreamToken(t *testing.T) {
+	encrypted, err := EncryptDownstreamToken("secret-value", "atom_plaintext_token")
+	if err != nil {
+		t.Fatalf("encrypt token: %v", err)
+	}
+	if encrypted == "" || encrypted == "atom_plaintext_token" {
+		t.Fatalf("expected encrypted payload, got %q", encrypted)
+	}
+	decrypted, err := DecryptDownstreamToken("secret-value", encrypted)
+	if err != nil {
+		t.Fatalf("decrypt token: %v", err)
+	}
+	if decrypted != "atom_plaintext_token" {
+		t.Fatalf("unexpected decrypted token: %q", decrypted)
+	}
+}
+
 func TestDownstreamKeyContextRoundTrip(t *testing.T) {
 	key := types.DownstreamKey{ID: 7, Name: "client-a", TokenPrefix: "atom_test"}
 	ctx := WithDownstreamKey(context.Background(), key)

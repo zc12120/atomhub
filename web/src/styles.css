@@ -289,6 +289,16 @@ select {
   max-width: none;
 }
 
+.token-display-stack {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.token-display-stack input {
+  margin-bottom: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .usage-bar-shell {
   width: 100%;
   height: 0.7rem;

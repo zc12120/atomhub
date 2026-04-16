@@ -117,6 +117,8 @@ export interface DownstreamKey {
   id: number;
   name: string;
   token_prefix: string;
+  masked_token: string;
+  can_reveal: boolean;
   enabled: boolean;
   last_used_at?: string | null;
   request_count: number;
@@ -143,6 +145,11 @@ export interface UpdateDownstreamKeyPayload {
 
 export interface CreateDownstreamKeyResponse {
   item: DownstreamKey;
+  token: string;
+}
+
+export interface DownstreamKeyTokenResponse {
+  id: number;
   token: string;
 }
 
@@ -278,6 +285,16 @@ export const api = {
     return requestJson(`/admin/downstream-keys/${id}`, {
       method: 'DELETE',
       skipJson: true
+    });
+  },
+
+  revealDownstreamKey(id: number): Promise<DownstreamKeyTokenResponse> {
+    return requestJson(`/admin/downstream-keys/${id}/token`);
+  },
+
+  regenerateDownstreamKey(id: number): Promise<DownstreamKeyTokenResponse> {
+    return requestJson(`/admin/downstream-keys/${id}/regenerate`, {
+      method: 'POST'
     });
   }
 };
