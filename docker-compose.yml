@@ -5,12 +5,13 @@ services:
     ports:
       - "${ATOMHUB_PUBLIC_PORT:-8080}:8080"
     environment:
-      ATOMHUB_HTTP_ADDR: ":8080"
-      ATOMHUB_DB_PATH: "/app/data/atomhub.db"
-      ATOMHUB_SESSION_SECRET: "change-me-session-secret"
-      ATOMHUB_ADMIN_USERNAME: "admin"
-      ATOMHUB_ADMIN_PASSWORD: "change-me-admin-password"
-      ATOMHUB_GATEWAY_TOKEN: "change-me-gateway-token"
+      ATOMHUB_HTTP_ADDR: "${ATOMHUB_HTTP_ADDR:-:8080}"
+      ATOMHUB_DB_PATH: "${ATOMHUB_DB_PATH:-./data/atomhub.db}"
+      ATOMHUB_SESSION_SECRET: "${ATOMHUB_SESSION_SECRET:-change-me-session-secret}"
+      ATOMHUB_SESSION_TTL: "${ATOMHUB_SESSION_TTL:-24h}"
+      ATOMHUB_ADMIN_USERNAME: "${ATOMHUB_ADMIN_USERNAME:-admin}"
+      ATOMHUB_ADMIN_PASSWORD: "${ATOMHUB_ADMIN_PASSWORD:-change-me-admin-password}"
+      ATOMHUB_GATEWAY_TOKEN: "${ATOMHUB_GATEWAY_TOKEN:-change-me-gateway-token}"
     volumes:
       - ./data:/app/data
     restart: unless-stopped
