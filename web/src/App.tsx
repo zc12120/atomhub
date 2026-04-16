@@ -41,7 +41,7 @@ export default function App(): JSX.Element {
   if (loading) {
     return (
       <div className="app-loading">
-        <p className="muted">Checking admin session…</p>
+        <p className="muted">正在检查管理员会话…</p>
       </div>
     );
   }

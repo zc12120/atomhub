@@ -25,12 +25,12 @@ export default function LoginPage({ session, onLogin }: LoginPageProps): JSX.Ele
     try {
       const nextSession = await loginAndFetchSession(username, password);
       if (nextSession.authenticated === false) {
-        setError('Login succeeded but no active session was found.');
+        setError('登录成功，但未检测到有效会话。');
         return;
       }
       onLogin(nextSession);
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : 'Login failed.';
+      const message = submitError instanceof Error ? submitError.message : '登录失败。';
       setError(message);
     } finally {
       setSubmitting(false);
@@ -40,10 +40,10 @@ export default function LoginPage({ session, onLogin }: LoginPageProps): JSX.Ele
   return (
     <div className="login-shell">
       <form className="card" onSubmit={handleSubmit}>
-        <h1>Admin Login</h1>
-        <p className="muted">Sign in to view dashboard metrics and key health.</p>
+        <h1>管理员登录</h1>
+        <p className="muted">登录后可查看仪表盘、密钥状态与请求记录。</p>
 
-        <label htmlFor="username">Username</label>
+        <label htmlFor="username">用户名</label>
         <input
           id="username"
           name="username"
@@ -53,7 +53,7 @@ export default function LoginPage({ session, onLogin }: LoginPageProps): JSX.Ele
           required
         />
 
-        <label htmlFor="password">Password</label>
+        <label htmlFor="password">密码</label>
         <input
           id="password"
           type="password"
@@ -67,7 +67,7 @@ export default function LoginPage({ session, onLogin }: LoginPageProps): JSX.Ele
         {error ? <p className="error-text">{error}</p> : null}
 
         <button type="submit" disabled={submitting}>
-          {submitting ? 'Signing in…' : 'Sign in'}
+          {submitting ? '登录中…' : '登录'}
         </button>
       </form>
     </div>

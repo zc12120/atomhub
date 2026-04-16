@@ -6,11 +6,11 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/keys', label: 'Keys' },
-  { to: '/models', label: 'Models' },
-  { to: '/requests', label: 'Requests' },
-  { to: '/health', label: 'Health' }
+  { to: '/dashboard', label: '仪表盘' },
+  { to: '/keys', label: '密钥' },
+  { to: '/models', label: '模型' },
+  { to: '/requests', label: '请求记录' },
+  { to: '/health', label: '健康状态' }
 ];
 
 export default function Layout({ username, onLogout }: LayoutProps): JSX.Element {
@@ -22,16 +22,16 @@ export default function Layout({ username, onLogout }: LayoutProps): JSX.Element
     <div className="shell">
       <header className="topbar">
         <div>
-          <h1>AtomHub Admin</h1>
-          <p className="topbar-subtitle">Signed in{username ? ` as ${username}` : ''}</p>
+          <h1>AtomHub 管理后台</h1>
+          <p className="topbar-subtitle">已登录{username ? `：${username}` : ''}</p>
         </div>
         <button type="button" className="secondary-button" onClick={handleLogout}>
-          Log out
+          退出登录
         </button>
       </header>
 
       <div className="content-grid">
-        <aside className="sidebar" aria-label="Admin navigation">
+        <aside className="sidebar" aria-label="管理后台导航">
           <nav>
             <ul>
               {navItems.map((item) => (
