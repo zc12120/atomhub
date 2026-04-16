@@ -230,3 +230,37 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+
+select {
+  width: 100%;
+  border: 1px solid #ced6e4;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.9rem;
+  background: #fff;
+}
+
+.form-grid {
+  width: 100%;
+  display: grid;
+  gap: 0.75rem;
+  max-width: none;
+}
+
+.form-grid h3 {
+  margin: 0;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.danger-button {
+  background: #c62145;
+}

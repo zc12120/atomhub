@@ -155,6 +155,7 @@ func TestConfigLoadAndAppBootstrap(t *testing.T) {
 	t.Setenv("ATOMHUB_SESSION_TTL", "2h")
 	t.Setenv("ATOMHUB_ADMIN_USERNAME", "root")
 	t.Setenv("ATOMHUB_ADMIN_PASSWORD", "root-pass")
+	t.Setenv("ATOMHUB_GATEWAY_TOKEN", "bootstrap-token")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -182,7 +183,7 @@ func TestConfigLoadAndAppBootstrap(t *testing.T) {
 	loginReq.Header.Set("Content-Type", "application/json")
 	loginRecorder := httptest.NewRecorder()
 	application.Handler.ServeHTTP(loginRecorder, loginReq)
-	if loginRecorder.Code != http.StatusNoContent {
+	if loginRecorder.Code != http.StatusOK {
 		t.Fatalf("expected login success, got %d body=%s", loginRecorder.Code, loginRecorder.Body.String())
 	}
 

@@ -107,7 +107,22 @@ func (s *KeyStore) SetEnabled(ctx context.Context, keyID int64, enabled bool) er
 }
 
 func (s *KeyStore) Delete(ctx context.Context, keyID int64) error {
-	res, err := s.db.ExecContext(ctx, `delete from upstream_keys where id = ?`, keyID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, stmt := range []string{
+		`delete from key_models where key_id = ?`,
+		`delete from key_state where key_id = ?`,
+		`delete from request_logs where key_id = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, stmt, keyID); err != nil {
+			return err
+		}
+	}
+	res, err := tx.ExecContext(ctx, `delete from upstream_keys where id = ?`, keyID)
 	if err != nil {
 		return err
 	}
@@ -118,7 +133,7 @@ func (s *KeyStore) Delete(ctx context.Context, keyID int64) error {
 	if rows == 0 {
 		return ErrKeyNotFound
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (s *KeyStore) Get(ctx context.Context, keyID int64) (types.UpstreamKey, error) {

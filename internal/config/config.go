@@ -16,6 +16,7 @@ const (
 	defaultSessionTTL    = 24 * time.Hour
 	defaultAdminUsername = "admin"
 	defaultAdminPassword = "admin"
+	defaultGatewayToken  = "atomhub-local-token"
 )
 
 // Config contains runtime configuration for the AtomHub backend foundation.
@@ -26,6 +27,7 @@ type Config struct {
 	SessionTTL    time.Duration
 	AdminUsername string
 	AdminPassword string
+	GatewayToken  string
 }
 
 // Load parses configuration from environment variables.
@@ -46,6 +48,7 @@ func Load() (Config, error) {
 		SessionTTL:    ttl,
 		AdminUsername: defaultIfEmpty(os.Getenv("ATOMHUB_ADMIN_USERNAME"), defaultAdminUsername),
 		AdminPassword: defaultIfEmpty(os.Getenv("ATOMHUB_ADMIN_PASSWORD"), defaultAdminPassword),
+		GatewayToken:  defaultIfEmpty(os.Getenv("ATOMHUB_GATEWAY_TOKEN"), defaultGatewayToken),
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -69,6 +72,8 @@ func (c Config) Validate() error {
 		return errors.New("admin username is required")
 	case strings.TrimSpace(c.AdminPassword) == "":
 		return errors.New("admin password is required")
+	case strings.TrimSpace(c.GatewayToken) == "":
+		return errors.New("gateway token is required")
 	}
 
 	if dir := filepath.Dir(c.DBPath); dir == "" {

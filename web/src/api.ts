@@ -16,6 +16,11 @@ export interface DashboardSummary {
 export interface DashboardResponse {
   items: DashboardItem[];
   summary: DashboardSummary;
+  health?: {
+    healthy_keys: number;
+    unhealthy_keys: number;
+    total_keys: number;
+  };
 }
 
 export interface AdminSession {
@@ -28,8 +33,18 @@ export interface AdminKey {
   provider: string;
   label: string;
   status: string;
+  base_url?: string;
+  enabled: boolean;
   last_error?: string;
   last_used_at?: string;
+}
+
+export interface CreateKeyPayload {
+  name: string;
+  provider: string;
+  base_url: string;
+  api_key: string;
+  enabled?: boolean;
 }
 
 export interface KeysResponse {
@@ -102,7 +117,7 @@ async function requestJson<T>(path: string, options: RequestOptions = {}): Promi
 }
 
 export const api = {
-  login(payload: LoginPayload): Promise<{ ok: boolean; username?: string }> {
+  login(payload: LoginPayload): Promise<{ ok?: boolean; username?: string }> {
     return requestJson('/admin/login', {
       method: 'POST',
       body: JSON.stringify(payload)
@@ -126,6 +141,33 @@ export const api = {
 
   getKeys(): Promise<KeysResponse> {
     return requestJson('/admin/keys');
+  },
+
+  createKey(payload: CreateKeyPayload): Promise<AdminKey> {
+    return requestJson('/admin/keys', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  updateKey(id: number, payload: CreateKeyPayload): Promise<AdminKey> {
+    return requestJson(`/admin/keys/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  deleteKey(id: number): Promise<void> {
+    return requestJson(`/admin/keys/${id}`, {
+      method: 'DELETE',
+      skipJson: true
+    });
+  },
+
+  probeKey(id: number): Promise<AdminKey> {
+    return requestJson(`/admin/keys/${id}/probe`, {
+      method: 'POST'
+    });
   },
 
   getModels(): Promise<ModelsResponse> {
