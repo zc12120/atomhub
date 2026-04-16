@@ -8,6 +8,7 @@ interface LayoutProps {
 const navItems = [
   { to: '/dashboard', label: '仪表盘' },
   { to: '/keys', label: '密钥' },
+  { to: '/downstream-keys', label: '下游密钥' },
   { to: '/models', label: '模型' },
   { to: '/requests', label: '请求记录' },
   { to: '/health', label: '健康状态' }

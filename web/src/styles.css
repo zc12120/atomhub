@@ -284,6 +284,11 @@ select {
   padding-bottom: 0.25rem;
 }
 
+.token-card {
+  width: 100%;
+  max-width: none;
+}
+
 .usage-bar-shell {
   width: 100%;
   height: 0.7rem;

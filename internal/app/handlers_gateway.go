@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,25 +14,47 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	internalauth "github.com/zc12120/atomhub/internal/auth"
 	"github.com/zc12120/atomhub/internal/selector"
+	"github.com/zc12120/atomhub/internal/store"
 	"github.com/zc12120/atomhub/internal/types"
 	"github.com/zc12120/atomhub/internal/usage"
 )
 
-func (a *App) requireGatewayToken(next http.Handler) http.Handler {
+func (a *App) requireGatewayAccess(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.Config.GatewayToken == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		authz := strings.TrimSpace(r.Header.Get("Authorization"))
-		token := strings.TrimPrefix(authz, "Bearer ")
-		if token != a.Config.GatewayToken {
+		token, ok := bearerToken(strings.TrimSpace(r.Header.Get("Authorization")))
+		if !ok {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
-		next.ServeHTTP(w, r)
+		if a.Config.GatewayToken != "" && token == a.Config.GatewayToken {
+			next.ServeHTTP(w, r)
+			return
+		}
+		downstreamKey, err := a.downstreamKeyStore.FindByToken(r.Context(), token)
+		if err != nil {
+			if err == store.ErrDownstreamKeyNotFound {
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "authenticate gateway request failed"})
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(internalauth.WithDownstreamKey(r.Context(), downstreamKey)))
 	})
+}
+
+func bearerToken(authz string) (string, bool) {
+	if authz == "" {
+		return "", false
+	}
+	parts := strings.SplitN(authz, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(strings.TrimSpace(parts[0]), "Bearer") {
+		return "", false
+	}
+	token := strings.TrimSpace(parts[1])
+	return token, token != ""
 }
 
 func (a *App) handleGatewayModels(w http.ResponseWriter, _ *http.Request) {
@@ -99,7 +122,7 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		latency := time.Since(started)
 		normalized := usage.Normalize(usage.ParsedUsage{PromptTokens: streamUsage.PromptTokens, CompletionTokens: streamUsage.CompletionTokens, TotalTokens: streamUsage.TotalTokens})
 		usageTokens := types.UsageTokens{PromptTokens: normalized.PromptTokens, CompletionTokens: normalized.CompletionTokens, TotalTokens: normalized.TotalTokens}
-		_, _ = a.logStore.Insert(r.Context(), selected.KeyID, req.Model, usageTokens, latency, streamErr)
+		_, _ = a.logStore.Insert(r.Context(), selected.KeyID, downstreamKeyIDFromContext(r.Context()), req.Model, usageTokens, latency, streamErr)
 		if streamErr != nil {
 			_ = a.stateStore.MarkFailure(r.Context(), selected.KeyID, streamErr)
 			if !responseStarted {
@@ -116,7 +139,7 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	latency := time.Since(started)
 	normalized := usage.Normalize(usage.ParsedUsage{PromptTokens: tokenUsage.PromptTokens, CompletionTokens: tokenUsage.CompletionTokens, TotalTokens: tokenUsage.TotalTokens})
 	usageTokens := types.UsageTokens{PromptTokens: normalized.PromptTokens, CompletionTokens: normalized.CompletionTokens, TotalTokens: normalized.TotalTokens}
-	_, _ = a.logStore.Insert(r.Context(), selected.KeyID, req.Model, usageTokens, latency, upstreamErr)
+	_, _ = a.logStore.Insert(r.Context(), selected.KeyID, downstreamKeyIDFromContext(r.Context()), req.Model, usageTokens, latency, upstreamErr)
 	if upstreamErr != nil {
 		_ = a.stateStore.MarkFailure(r.Context(), selected.KeyID, upstreamErr)
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": upstreamErr.Error()})
@@ -124,6 +147,15 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = a.stateStore.MarkSuccess(r.Context(), selected.KeyID)
 	writeJSON(w, http.StatusOK, result)
+}
+
+func downstreamKeyIDFromContext(ctx context.Context) *int64 {
+	downstreamKey, ok := internalauth.DownstreamKeyFromContext(ctx)
+	if !ok || downstreamKey.ID == 0 {
+		return nil
+	}
+	id := downstreamKey.ID
+	return &id
 }
 
 func (a *App) proxyChatCompletion(r *http.Request, key types.UpstreamKey, req openAIChatRequest) (openAIChatResponse, types.UsageTokens, error) {

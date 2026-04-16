@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -183,6 +184,89 @@ func (a *App) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (a *App) handleListDownstreamKeys(w http.ResponseWriter, r *http.Request) {
+	items, err := a.listAdminDownstreamKeys(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, adminDownstreamKeysResponse{Items: items})
+}
+
+func (a *App) handleCreateDownstreamKey(w http.ResponseWriter, r *http.Request) {
+	var payload adminDownstreamKeyPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return
+	}
+	key, err := payload.toDownstreamKey()
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	created, token, err := a.downstreamKeyStore.Create(r.Context(), key)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusCreated, adminDownstreamKeyCreateResponse{
+		Item:  mapAdminDownstreamKey(created),
+		Token: token,
+	})
+}
+
+func (a *App) handleUpdateDownstreamKey(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseIDPath(w, r, "id")
+	if !ok {
+		return
+	}
+	var payload adminDownstreamKeyUpdatePayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
+		return
+	}
+	existing, err := a.downstreamKeyStore.Get(r.Context(), id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrDownstreamKeyNotFound) {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	updatedKey, err := payload.mergeInto(existing)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	updated, err := a.downstreamKeyStore.Update(r.Context(), updatedKey)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrDownstreamKeyNotFound) {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, mapAdminDownstreamKey(updated))
+}
+
+func (a *App) handleDeleteDownstreamKey(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseIDPath(w, r, "id")
+	if !ok {
+		return
+	}
+	if err := a.downstreamKeyStore.Delete(r.Context(), id); err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrDownstreamKeyNotFound) {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (a *App) handleProbeKey(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseIDPath(w, r, "id")
 	if !ok {
@@ -296,11 +380,20 @@ func (a *App) handleRequests(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	downstreamKeys, err := a.downstreamKeyStore.List(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
 
 	keyByID := make(map[int64]types.UpstreamKey, len(keys))
 	modelSet := make(map[string]struct{})
+	downstreamKeyByID := make(map[int64]types.DownstreamKey, len(downstreamKeys))
 	for _, key := range keys {
 		keyByID[key.ID] = key
+	}
+	for _, downstreamKey := range downstreamKeys {
+		downstreamKeyByID[downstreamKey.ID] = downstreamKey
 	}
 	items := make([]adminRequestLogItem, 0, len(logs))
 	var summary adminRequestsSummary
@@ -311,18 +404,20 @@ func (a *App) handleRequests(w http.ResponseWriter, r *http.Request) {
 		}
 		key := keyByID[entry.KeyID]
 		items = append(items, adminRequestLogItem{
-			ID:               entry.ID,
-			KeyID:            entry.KeyID,
-			KeyLabel:         key.Name,
-			Provider:         string(key.Provider),
-			Model:            entry.Model,
-			PromptTokens:     entry.PromptTokens,
-			CompletionTokens: entry.CompletionTokens,
-			TotalTokens:      entry.TotalTokens,
-			LatencyMS:        entry.LatencyMS,
-			Status:           entry.Status,
-			ErrorMessage:     entry.ErrorMessage,
-			CreatedAt:        entry.CreatedAt,
+			ID:                entry.ID,
+			KeyID:             entry.KeyID,
+			KeyLabel:          key.Name,
+			Provider:          string(key.Provider),
+			DownstreamKeyID:   entry.DownstreamKeyID,
+			DownstreamKeyName: downstreamKeyName(entry.DownstreamKeyID, downstreamKeyByID),
+			Model:             entry.Model,
+			PromptTokens:      entry.PromptTokens,
+			CompletionTokens:  entry.CompletionTokens,
+			TotalTokens:       entry.TotalTokens,
+			LatencyMS:         entry.LatencyMS,
+			Status:            entry.Status,
+			ErrorMessage:      entry.ErrorMessage,
+			CreatedAt:         entry.CreatedAt,
 		})
 		summary.RequestCount++
 		summary.PromptTokens += entry.PromptTokens
@@ -372,6 +467,18 @@ func (a *App) listAdminKeys(r *http.Request) ([]adminKeyItem, error) {
 	return items, nil
 }
 
+func (a *App) listAdminDownstreamKeys(ctx context.Context) ([]adminDownstreamKeyItem, error) {
+	keys, err := a.downstreamKeyStore.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]adminDownstreamKeyItem, 0, len(keys))
+	for _, key := range keys {
+		items = append(items, mapAdminDownstreamKey(key))
+	}
+	return items, nil
+}
+
 func mapAdminKey(key types.UpstreamKey, state types.KeyState, lastUsedAt *time.Time) adminKeyItem {
 	status := string(state.Status)
 	if !key.Enabled {
@@ -390,6 +497,33 @@ func mapAdminKey(key types.UpstreamKey, state types.KeyState, lastUsedAt *time.T
 		LastError:  state.LastError,
 		LastUsedAt: lastUsedAt,
 	}
+}
+
+func mapAdminDownstreamKey(key types.DownstreamKey) adminDownstreamKeyItem {
+	return adminDownstreamKeyItem{
+		ID:               key.ID,
+		Name:             key.Name,
+		TokenPrefix:      key.TokenPrefix,
+		Enabled:          key.Enabled,
+		LastUsedAt:       key.LastUsedAt,
+		RequestCount:     key.RequestCount,
+		PromptTokens:     key.PromptTokens,
+		CompletionTokens: key.CompletionTokens,
+		TotalTokens:      key.TotalTokens,
+		CreatedAt:        key.CreatedAt,
+		UpdatedAt:        key.UpdatedAt,
+	}
+}
+
+func downstreamKeyName(id *int64, keys map[int64]types.DownstreamKey) string {
+	if id == nil {
+		return ""
+	}
+	key, ok := keys[*id]
+	if !ok {
+		return ""
+	}
+	return key.Name
 }
 
 func parseIDPath(w http.ResponseWriter, r *http.Request, name string) (int64, bool) {
@@ -456,6 +590,33 @@ func (p adminKeyUpdatePayload) mergeInto(existing types.UpstreamKey) (types.Upst
 	}
 	if strings.TrimSpace(updated.BaseURL) == "" {
 		updated.BaseURL = defaultBaseURLForProvider(updated.Provider)
+	}
+	return updated, nil
+}
+
+func (p adminDownstreamKeyPayload) toDownstreamKey() (types.DownstreamKey, error) {
+	name := strings.TrimSpace(p.Name)
+	if name == "" {
+		return types.DownstreamKey{}, errors.New("name is required")
+	}
+	enabled := true
+	if p.Enabled != nil {
+		enabled = *p.Enabled
+	}
+	return types.DownstreamKey{Name: name, Enabled: enabled}, nil
+}
+
+func (p adminDownstreamKeyUpdatePayload) mergeInto(existing types.DownstreamKey) (types.DownstreamKey, error) {
+	updated := existing
+	if p.Name != nil {
+		name := strings.TrimSpace(*p.Name)
+		if name == "" {
+			return types.DownstreamKey{}, errors.New("name is required")
+		}
+		updated.Name = name
+	}
+	if p.Enabled != nil {
+		updated.Enabled = *p.Enabled
 	}
 	return updated, nil
 }

@@ -115,18 +115,20 @@ type adminDashboardResponse struct {
 }
 
 type adminRequestLogItem struct {
-	ID               int64     `json:"id"`
-	KeyID            int64     `json:"key_id"`
-	KeyLabel         string    `json:"key_label,omitempty"`
-	Provider         string    `json:"provider,omitempty"`
-	Model            string    `json:"model"`
-	PromptTokens     int64     `json:"prompt_tokens"`
-	CompletionTokens int64     `json:"completion_tokens"`
-	TotalTokens      int64     `json:"total_tokens"`
-	LatencyMS        int64     `json:"latency_ms"`
-	Status           string    `json:"status"`
-	ErrorMessage     string    `json:"error_message,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID                int64     `json:"id"`
+	KeyID             int64     `json:"key_id"`
+	KeyLabel          string    `json:"key_label,omitempty"`
+	Provider          string    `json:"provider,omitempty"`
+	DownstreamKeyID   *int64    `json:"downstream_key_id,omitempty"`
+	DownstreamKeyName string    `json:"downstream_key_name,omitempty"`
+	Model             string    `json:"model"`
+	PromptTokens      int64     `json:"prompt_tokens"`
+	CompletionTokens  int64     `json:"completion_tokens"`
+	TotalTokens       int64     `json:"total_tokens"`
+	LatencyMS         int64     `json:"latency_ms"`
+	Status            string    `json:"status"`
+	ErrorMessage      string    `json:"error_message,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
 }
 
 type adminRequestsSummary struct {
@@ -146,4 +148,37 @@ type adminRequestsResponse struct {
 	Items   []adminRequestLogItem `json:"items"`
 	Summary adminRequestsSummary  `json:"summary"`
 	Filters adminRequestsFilters  `json:"filters"`
+}
+
+type adminDownstreamKeyPayload struct {
+	Name    string `json:"name"`
+	Enabled *bool  `json:"enabled,omitempty"`
+}
+
+type adminDownstreamKeyUpdatePayload struct {
+	Name    *string `json:"name,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
+}
+
+type adminDownstreamKeyItem struct {
+	ID               int64      `json:"id"`
+	Name             string     `json:"name"`
+	TokenPrefix      string     `json:"token_prefix"`
+	Enabled          bool       `json:"enabled"`
+	LastUsedAt       *time.Time `json:"last_used_at,omitempty"`
+	RequestCount     int64      `json:"request_count"`
+	PromptTokens     int64      `json:"prompt_tokens"`
+	CompletionTokens int64      `json:"completion_tokens"`
+	TotalTokens      int64      `json:"total_tokens"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+}
+
+type adminDownstreamKeysResponse struct {
+	Items []adminDownstreamKeyItem `json:"items"`
+}
+
+type adminDownstreamKeyCreateResponse struct {
+	Item  adminDownstreamKeyItem `json:"item"`
+	Token string                 `json:"token"`
 }

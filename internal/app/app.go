@@ -27,18 +27,19 @@ type App struct {
 	DB      *sql.DB
 	Handler http.Handler
 
-	server         *http.Server
-	adminRepo      *store.AdminRepository
-	sessionManager *auth.SessionManager
-	keyStore       *store.KeyStore
-	modelStore     *store.ModelStore
-	stateStore     *store.StateStore
-	logStore       *store.LogStore
-	statsStore     *store.StatsStore
-	catalog        *catalog.Catalog
-	probeService   *probe.Service
-	selector       *selector.Selector
-	upstreamClient *http.Client
+	server             *http.Server
+	adminRepo          *store.AdminRepository
+	sessionManager     *auth.SessionManager
+	keyStore           *store.KeyStore
+	downstreamKeyStore *store.DownstreamKeyStore
+	modelStore         *store.ModelStore
+	stateStore         *store.StateStore
+	logStore           *store.LogStore
+	statsStore         *store.StatsStore
+	catalog            *catalog.Catalog
+	probeService       *probe.Service
+	selector           *selector.Selector
+	upstreamClient     *http.Client
 }
 
 // New initializes application configuration, database, migrations, auth, and HTTP routes.
@@ -71,6 +72,7 @@ func New(cfg config.Config) (*App, error) {
 
 	sessionManager := auth.NewSessionManager(cfg.SessionSecret, cfg.SessionTTL)
 	keyStore := store.NewKeyStore(db)
+	downstreamKeyStore := store.NewDownstreamKeyStore(db)
 	modelStore := store.NewModelStore(db)
 	stateStore := store.NewStateStore(db)
 	logStore := store.NewLogStore(db)
@@ -88,19 +90,20 @@ func New(cfg config.Config) (*App, error) {
 	_ = catalogStore.Rebuild(context.Background())
 
 	application := &App{
-		Config:         cfg,
-		DB:             db,
-		adminRepo:      adminRepo,
-		sessionManager: sessionManager,
-		keyStore:       keyStore,
-		modelStore:     modelStore,
-		stateStore:     stateStore,
-		logStore:       logStore,
-		statsStore:     statsStore,
-		catalog:        catalogStore,
-		probeService:   probeService,
-		selector:       selector.New(),
-		upstreamClient: &http.Client{Timeout: 60 * time.Second},
+		Config:             cfg,
+		DB:                 db,
+		adminRepo:          adminRepo,
+		sessionManager:     sessionManager,
+		keyStore:           keyStore,
+		downstreamKeyStore: downstreamKeyStore,
+		modelStore:         modelStore,
+		stateStore:         stateStore,
+		logStore:           logStore,
+		statsStore:         statsStore,
+		catalog:            catalogStore,
+		probeService:       probeService,
+		selector:           selector.New(),
+		upstreamClient:     &http.Client{Timeout: 60 * time.Second},
 	}
 
 	application.Handler = application.routes()

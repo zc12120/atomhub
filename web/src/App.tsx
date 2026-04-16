@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import { fetchSession, isAuthenticated, logoutAndClearSession, type SessionState } from './auth';
 import DashboardPage from './pages/DashboardPage';
+import DownstreamKeysPage from './pages/DownstreamKeysPage';
 import HealthPage from './pages/HealthPage';
 import KeysPage from './pages/KeysPage';
 import LoginPage from './pages/LoginPage';
@@ -64,6 +65,7 @@ export default function App(): JSX.Element {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="keys" element={<KeysPage />} />
+        <Route path="downstream-keys" element={<DownstreamKeysPage />} />
         <Route path="models" element={<ModelsPage />} />
         <Route path="requests" element={<RequestsPage />} />
         <Route path="health" element={<HealthPage />} />
