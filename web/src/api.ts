@@ -289,7 +289,9 @@ export const api = {
   },
 
   revealDownstreamKey(id: number): Promise<DownstreamKeyTokenResponse> {
-    return requestJson(`/admin/downstream-keys/${id}/token`);
+    return requestJson(`/admin/downstream-keys/${id}/token`, {
+      method: 'POST'
+    });
   },
 
   regenerateDownstreamKey(id: number): Promise<DownstreamKeyTokenResponse> {

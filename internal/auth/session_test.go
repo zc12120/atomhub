@@ -156,6 +156,7 @@ func TestConfigLoadAndAppBootstrap(t *testing.T) {
 	t.Setenv("ATOMHUB_ADMIN_USERNAME", "root")
 	t.Setenv("ATOMHUB_ADMIN_PASSWORD", "root-pass")
 	t.Setenv("ATOMHUB_GATEWAY_TOKEN", "bootstrap-token")
+	t.Setenv("ATOMHUB_DOWNSTREAM_KEY_SECRET", "bootstrap-downstream-secret")
 
 	cfg, err := config.Load()
 	if err != nil {

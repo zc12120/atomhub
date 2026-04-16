@@ -133,6 +133,9 @@ func TestAdminDownstreamKeyCRUD(t *testing.T) {
 	if created.Token == "" || created.Item.ID == 0 || created.Item.Name != "client-a" || !created.Item.Enabled {
 		t.Fatalf("unexpected create payload: %+v", created)
 	}
+	if cacheControl := createRec.Header().Get("Cache-Control"); cacheControl != "no-store" {
+		t.Fatalf("expected create response to be no-store, got %q", cacheControl)
+	}
 
 	listReq := httptest.NewRequest(http.MethodGet, "/admin/downstream-keys", nil)
 	for _, cookie := range cookies {
@@ -154,7 +157,7 @@ func TestAdminDownstreamKeyCRUD(t *testing.T) {
 		t.Fatalf("expected masked token and reveal support: %+v", listed.Items[0])
 	}
 
-	revealReq := httptest.NewRequest(http.MethodGet, "/admin/downstream-keys/"+itoa(created.Item.ID)+"/token", nil)
+	revealReq := httptest.NewRequest(http.MethodPost, "/admin/downstream-keys/"+itoa(created.Item.ID)+"/token", nil)
 	for _, cookie := range cookies {
 		revealReq.AddCookie(cookie)
 	}
@@ -169,6 +172,9 @@ func TestAdminDownstreamKeyCRUD(t *testing.T) {
 	}
 	if revealed.Token != created.Token || revealed.ID != created.Item.ID {
 		t.Fatalf("unexpected reveal payload: %+v created=%+v", revealed, created)
+	}
+	if cacheControl := revealRec.Header().Get("Cache-Control"); cacheControl != "no-store" {
+		t.Fatalf("expected reveal response to be no-store, got %q", cacheControl)
 	}
 
 	regenerateReq := httptest.NewRequest(http.MethodPost, "/admin/downstream-keys/"+itoa(created.Item.ID)+"/regenerate", nil)
@@ -186,6 +192,9 @@ func TestAdminDownstreamKeyCRUD(t *testing.T) {
 	}
 	if regenerated.Token == "" || regenerated.Token == created.Token || regenerated.ID != created.Item.ID {
 		t.Fatalf("unexpected regenerate payload: %+v created=%+v", regenerated, created)
+	}
+	if cacheControl := regenerateRec.Header().Get("Cache-Control"); cacheControl != "no-store" {
+		t.Fatalf("expected regenerate response to be no-store, got %q", cacheControl)
 	}
 
 	updateReq := httptest.NewRequest(http.MethodPut, "/admin/downstream-keys/"+itoa(created.Item.ID), bytes.NewReader([]byte(`{"name":"client-b","enabled":false}`)))
