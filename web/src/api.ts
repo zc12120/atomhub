@@ -1,0 +1,138 @@
+export interface DashboardItem {
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  request_count: number;
+}
+
+export interface DashboardSummary {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  request_count?: number;
+}
+
+export interface DashboardResponse {
+  items: DashboardItem[];
+  summary: DashboardSummary;
+}
+
+export interface AdminSession {
+  authenticated: boolean;
+  username?: string;
+}
+
+export interface AdminKey {
+  id: number;
+  provider: string;
+  label: string;
+  status: string;
+  last_error?: string;
+  last_used_at?: string;
+}
+
+export interface KeysResponse {
+  items: AdminKey[];
+}
+
+export interface AdminModel {
+  model: string;
+  provider: string;
+  key_count: number;
+  healthy_keys: number;
+}
+
+export interface ModelsResponse {
+  items: AdminModel[];
+}
+
+export interface HealthSummary {
+  healthy_keys: number;
+  unhealthy_keys: number;
+  total_keys: number;
+}
+
+export interface HealthResponse {
+  summary: HealthSummary;
+  keys: AdminKey[];
+}
+
+interface LoginPayload {
+  username: string;
+  password: string;
+}
+
+interface RequestOptions extends RequestInit {
+  skipJson?: boolean;
+}
+
+const defaultHeaders = {
+  'Content-Type': 'application/json'
+};
+
+async function requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await fetch(path, {
+    credentials: 'include',
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...(options.headers ?? {})
+    }
+  });
+
+  if (!response.ok) {
+    let message = `Request failed: ${response.status}`;
+    try {
+      const errorBody = (await response.json()) as { error?: string };
+      if (errorBody.error) {
+        message = errorBody.error;
+      }
+    } catch {
+      // Ignore parsing errors and keep fallback message.
+    }
+    throw new Error(message);
+  }
+
+  if (options.skipJson || response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+export const api = {
+  login(payload: LoginPayload): Promise<{ ok: boolean; username?: string }> {
+    return requestJson('/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  logout(): Promise<void> {
+    return requestJson('/admin/logout', {
+      method: 'POST',
+      skipJson: true
+    });
+  },
+
+  getSession(): Promise<AdminSession> {
+    return requestJson('/admin/session');
+  },
+
+  getDashboard(): Promise<DashboardResponse> {
+    return requestJson('/admin/dashboard');
+  },
+
+  getKeys(): Promise<KeysResponse> {
+    return requestJson('/admin/keys');
+  },
+
+  getModels(): Promise<ModelsResponse> {
+    return requestJson('/admin/models');
+  },
+
+  getHealth(): Promise<HealthResponse> {
+    return requestJson('/admin/health');
+  }
+};
