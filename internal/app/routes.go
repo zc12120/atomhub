@@ -25,13 +25,17 @@ func (a *App) routes() http.Handler {
 	adminMux.HandleFunc("GET /admin/models", a.handleModels)
 	adminMux.HandleFunc("GET /admin/health", a.handleHealth)
 	adminMux.HandleFunc("GET /admin/requests", a.handleRequests)
+	adminMux.HandleFunc("GET /admin/downstream-keys", a.handleListDownstreamKeys)
+	adminMux.HandleFunc("POST /admin/downstream-keys", a.handleCreateDownstreamKey)
+	adminMux.HandleFunc("PUT /admin/downstream-keys/{id}", a.handleUpdateDownstreamKey)
+	adminMux.HandleFunc("DELETE /admin/downstream-keys/{id}", a.handleDeleteDownstreamKey)
 
 	mux.Handle("/admin/", auth.RequireAdmin(a.sessionManager, adminMux))
 
 	gatewayMux := http.NewServeMux()
 	gatewayMux.HandleFunc("GET /v1/models", a.handleGatewayModels)
 	gatewayMux.HandleFunc("POST /v1/chat/completions", a.handleChatCompletions)
-	mux.Handle("/v1/", a.requireGatewayToken(gatewayMux))
+	mux.Handle("/v1/", a.requireGatewayAccess(gatewayMux))
 
 	mux.Handle("/", spaHandler("web/dist"))
 	return mux

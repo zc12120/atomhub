@@ -20,6 +20,7 @@ func NewLogStore(db *sql.DB) *LogStore {
 func (s *LogStore) Insert(
 	ctx context.Context,
 	keyID int64,
+	downstreamKeyID *int64,
 	model string,
 	usage types.UsageTokens,
 	latency time.Duration,
@@ -32,13 +33,20 @@ func (s *LogStore) Insert(
 		errMsg = callErr.Error()
 	}
 	createdAt := time.Now().UTC().Format(time.RFC3339Nano)
-	result, err := s.db.ExecContext(
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.ExecContext(
 		ctx,
 		`insert into request_logs (
-			key_id, model, prompt_tokens, completion_tokens, total_tokens,
+			key_id, downstream_key_id, model, prompt_tokens, completion_tokens, total_tokens,
 			latency_ms, status, error_message, created_at
-		) values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		keyID,
+		downstreamKeyID,
 		model,
 		maxInt64(usage.PromptTokens, 0),
 		maxInt64(usage.CompletionTokens, 0),
@@ -55,6 +63,31 @@ func (s *LogStore) Insert(
 	if err != nil {
 		return 0, err
 	}
+	if downstreamKeyID != nil && *downstreamKeyID > 0 {
+		_, err = tx.ExecContext(
+			ctx,
+			`update downstream_keys
+			 set request_count = request_count + 1,
+			     prompt_tokens = prompt_tokens + ?,
+			     completion_tokens = completion_tokens + ?,
+			     total_tokens = total_tokens + ?,
+			     last_used_at = ?,
+			     updated_at = ?
+			 where id = ?`,
+			maxInt64(usage.PromptTokens, 0),
+			maxInt64(usage.CompletionTokens, 0),
+			maxInt64(usage.TotalTokens, 0),
+			createdAt,
+			createdAt,
+			*downstreamKeyID,
+		)
+		if err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
 	return id, nil
 }
 
@@ -64,7 +97,7 @@ func (s *LogStore) ListRecent(ctx context.Context, limit int) ([]types.RequestLo
 	}
 	rows, err := s.db.QueryContext(
 		ctx,
-		`select id, key_id, model, prompt_tokens, completion_tokens, total_tokens,
+		`select id, key_id, downstream_key_id, model, prompt_tokens, completion_tokens, total_tokens,
 		        latency_ms, status, error_message, created_at
 		 from request_logs
 		 order by id desc
@@ -92,13 +125,15 @@ func (s *LogStore) ListRecent(ctx context.Context, limit int) ([]types.RequestLo
 
 func scanRequestLog(scanner rowScanner) (types.RequestLog, error) {
 	var (
-		entry      types.RequestLog
-		errMessage sql.NullString
-		createdRaw string
+		entry           types.RequestLog
+		downstreamKeyID sql.NullInt64
+		errMessage      sql.NullString
+		createdRaw      string
 	)
 	if err := scanner.Scan(
 		&entry.ID,
 		&entry.KeyID,
+		&downstreamKeyID,
 		&entry.Model,
 		&entry.PromptTokens,
 		&entry.CompletionTokens,
@@ -109,6 +144,10 @@ func scanRequestLog(scanner rowScanner) (types.RequestLog, error) {
 		&createdRaw,
 	); err != nil {
 		return types.RequestLog{}, err
+	}
+	if downstreamKeyID.Valid {
+		value := downstreamKeyID.Int64
+		entry.DownstreamKeyID = &value
 	}
 	entry.ErrorMessage = errMessage.String
 	createdAt, err := parseSQLiteTime(createdRaw)

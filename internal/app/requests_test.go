@@ -32,9 +32,13 @@ func TestAdminRequestsReturnsRecentLogsAndSummary(t *testing.T) {
 	if err := app.stateStore.Ensure(context.Background(), key.ID); err != nil {
 		t.Fatalf("ensure state: %v", err)
 	}
-	_, _ = app.logStore.Insert(context.Background(), key.ID, "gpt-4o-mini", types.UsageTokens{PromptTokens: 5, CompletionTokens: 2, TotalTokens: 7}, 120*time.Millisecond, nil)
-	_, _ = app.logStore.Insert(context.Background(), key.ID, "gpt-4o-mini", types.UsageTokens{PromptTokens: 3, CompletionTokens: 1, TotalTokens: 4}, 90*time.Millisecond, nil)
-	_, _ = app.logStore.Insert(context.Background(), key.ID, "claude-3-5-haiku", types.UsageTokens{}, 200*time.Millisecond, context.DeadlineExceeded)
+	downstreamKey, _, err := app.downstreamKeyStore.Create(context.Background(), types.DownstreamKey{Name: "client-a", Enabled: true})
+	if err != nil {
+		t.Fatalf("create downstream key: %v", err)
+	}
+	_, _ = app.logStore.Insert(context.Background(), key.ID, downstreamKeyIDRef(downstreamKey.ID), "gpt-4o-mini", types.UsageTokens{PromptTokens: 5, CompletionTokens: 2, TotalTokens: 7}, 120*time.Millisecond, nil)
+	_, _ = app.logStore.Insert(context.Background(), key.ID, nil, "gpt-4o-mini", types.UsageTokens{PromptTokens: 3, CompletionTokens: 1, TotalTokens: 4}, 90*time.Millisecond, nil)
+	_, _ = app.logStore.Insert(context.Background(), key.ID, nil, "claude-3-5-haiku", types.UsageTokens{}, 200*time.Millisecond, context.DeadlineExceeded)
 
 	loginReq := httptest.NewRequest(http.MethodPost, "/admin/login", bytes.NewReader([]byte(`{"username":"admin","password":"admin"}`)))
 	loginRec := httptest.NewRecorder()
@@ -55,7 +59,9 @@ func TestAdminRequestsReturnsRecentLogsAndSummary(t *testing.T) {
 
 	var payload struct {
 		Items []struct {
-			Model string `json:"model"`
+			Model             string `json:"model"`
+			DownstreamKeyID   *int64 `json:"downstream_key_id"`
+			DownstreamKeyName string `json:"downstream_key_name"`
 		} `json:"items"`
 		Summary struct {
 			RequestCount int64 `json:"request_count"`
@@ -79,9 +85,22 @@ func TestAdminRequestsReturnsRecentLogsAndSummary(t *testing.T) {
 	if len(payload.Items) != 2 {
 		t.Fatalf("unexpected item count: %d", len(payload.Items))
 	}
+	foundDownstream := false
+	for _, item := range payload.Items {
+		if item.DownstreamKeyID != nil && *item.DownstreamKeyID == downstreamKey.ID && item.DownstreamKeyName == downstreamKey.Name {
+			foundDownstream = true
+		}
+	}
+	if !foundDownstream {
+		t.Fatalf("expected one item to include downstream attribution: %+v", payload.Items)
+	}
 	for _, item := range payload.Items {
 		if item.Model != "gpt-4o-mini" {
 			t.Fatalf("unexpected item: %+v", item)
 		}
 	}
+}
+
+func downstreamKeyIDRef(id int64) *int64 {
+	return &id
 }

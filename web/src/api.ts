@@ -113,6 +113,39 @@ export interface RequestsResponse {
   };
 }
 
+export interface DownstreamKey {
+  id: number;
+  name: string;
+  token_prefix: string;
+  enabled: boolean;
+  last_used_at?: string | null;
+  request_count: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DownstreamKeysResponse {
+  items: DownstreamKey[];
+}
+
+export interface CreateDownstreamKeyPayload {
+  name: string;
+  enabled?: boolean;
+}
+
+export interface UpdateDownstreamKeyPayload {
+  name?: string;
+  enabled?: boolean;
+}
+
+export interface CreateDownstreamKeyResponse {
+  item: DownstreamKey;
+  token: string;
+}
+
 interface LoginPayload {
   username: string;
   password: string;
@@ -221,5 +254,30 @@ export const api = {
   getRequests(model?: string): Promise<RequestsResponse> {
     const query = model ? `?model=${encodeURIComponent(model)}` : '';
     return requestJson(`/admin/requests${query}`);
+  },
+
+  getDownstreamKeys(): Promise<DownstreamKeysResponse> {
+    return requestJson('/admin/downstream-keys');
+  },
+
+  createDownstreamKey(payload: CreateDownstreamKeyPayload): Promise<CreateDownstreamKeyResponse> {
+    return requestJson('/admin/downstream-keys', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  updateDownstreamKey(id: number, payload: UpdateDownstreamKeyPayload): Promise<DownstreamKey> {
+    return requestJson(`/admin/downstream-keys/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  deleteDownstreamKey(id: number): Promise<void> {
+    return requestJson(`/admin/downstream-keys/${id}`, {
+      method: 'DELETE',
+      skipJson: true
+    });
   }
 };

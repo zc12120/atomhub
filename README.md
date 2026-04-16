@@ -9,6 +9,7 @@ AtomHub is a self-hosted AI gateway and admin dashboard.
 - Supports both standard and streaming chat completions on the downstream API
 - Load-balances requests across healthy keys that support the same model
 - Cools down failing keys and retries on other eligible keys
+- Lets the admin UI generate and manage downstream bearer keys for clients
 - Persists token usage and shows per-model prompt/completion/total token totals in a web dashboard
 - Shows recent request records with per-model token usage breakdowns
 - Protects the admin UI with a single-admin login session
@@ -27,6 +28,7 @@ AtomHub is a self-hosted AI gateway and admin dashboard.
 After login, the web UI provides:
 - Dashboard: per-model token usage totals and overall totals
 - Keys: create keys, edit keys, enable/disable keys, probe keys, delete keys, and view health/errors
+- Downstream Keys: generate client-facing bearer keys, enable/disable them, delete them, and inspect usage totals
 - Models: see discovered model pools per provider
 - Requests: inspect recent request logs, errors, and per-model usage shares
 - Health: see healthy/unhealthy key counts and last errors
@@ -105,3 +107,6 @@ curl http://localhost:8080/v1/chat/completions \
     "messages": [{"role": "user", "content": "Hello"}]
   }'
 ```
+
+### Using UI-generated downstream keys
+You can keep using `ATOMHUB_GATEWAY_TOKEN` as a super-token, but the admin UI can now generate per-client downstream keys on the `下游密钥` page. Those generated bearer keys work against the same `/v1/*` endpoints and accumulate per-key request/token usage inside the dashboard.
