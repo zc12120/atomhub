@@ -8,14 +8,14 @@ Store each downstream key in two forms:
 - `token_hash` for request authentication lookup
 - encrypted plaintext for admin reveal/copy
 
-Encryption uses a deterministic app-side secret derived from `ATOMHUB_DOWNSTREAM_KEY_SECRET`, falling back to `ATOMHUB_SESSION_SECRET` so deployment works immediately.
+Encryption uses a dedicated app-side secret from `ATOMHUB_DOWNSTREAM_KEY_SECRET`.
 
 ## Backend changes
 - Add config field `DownstreamKeySecret`.
 - Add encrypted storage columns to `downstream_keys`.
 - Keep auth path on `token_hash` unchanged.
 - Add admin endpoints:
-  - `GET /admin/downstream-keys/{id}/token`
+  - `POST /admin/downstream-keys/{id}/token`
   - `POST /admin/downstream-keys/{id}/regenerate`
 - Existing list responses return masked display text instead of only the prefix.
 - Old rows without encrypted payload remain usable for auth but cannot be revealed; regenerate repairs them.

@@ -209,7 +209,7 @@ func (a *App) handleCreateDownstreamKey(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusCreated, adminDownstreamKeyCreateResponse{
+	writeSensitiveJSON(w, http.StatusCreated, adminDownstreamKeyCreateResponse{
 		Item:  mapAdminDownstreamKey(created),
 		Token: token,
 	})
@@ -283,7 +283,7 @@ func (a *App) handleRevealDownstreamKey(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, status, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, adminDownstreamKeyTokenResponse{ID: id, Token: token})
+	writeSensitiveJSON(w, http.StatusOK, adminDownstreamKeyTokenResponse{ID: id, Token: token})
 }
 
 func (a *App) handleRegenerateDownstreamKey(w http.ResponseWriter, r *http.Request) {
@@ -300,7 +300,7 @@ func (a *App) handleRegenerateDownstreamKey(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, status, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, adminDownstreamKeyTokenResponse{ID: id, Token: token})
+	writeSensitiveJSON(w, http.StatusOK, adminDownstreamKeyTokenResponse{ID: id, Token: token})
 }
 
 func (a *App) handleProbeKey(w http.ResponseWriter, r *http.Request) {

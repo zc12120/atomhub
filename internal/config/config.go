@@ -43,15 +43,15 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		HTTPAddr:      defaultIfEmpty(os.Getenv("ATOMHUB_HTTP_ADDR"), defaultHTTPAddr),
-		DBPath:        defaultIfEmpty(os.Getenv("ATOMHUB_DB_PATH"), defaultDBPath),
-		SessionSecret: defaultIfEmpty(os.Getenv("ATOMHUB_SESSION_SECRET"), defaultSessionSecret),
-		SessionTTL:    ttl,
-		AdminUsername: defaultIfEmpty(os.Getenv("ATOMHUB_ADMIN_USERNAME"), defaultAdminUsername),
-		AdminPassword: defaultIfEmpty(os.Getenv("ATOMHUB_ADMIN_PASSWORD"), defaultAdminPassword),
-		GatewayToken:  defaultIfEmpty(os.Getenv("ATOMHUB_GATEWAY_TOKEN"), defaultGatewayToken),
+		HTTPAddr:            defaultIfEmpty(os.Getenv("ATOMHUB_HTTP_ADDR"), defaultHTTPAddr),
+		DBPath:              defaultIfEmpty(os.Getenv("ATOMHUB_DB_PATH"), defaultDBPath),
+		SessionSecret:       defaultIfEmpty(os.Getenv("ATOMHUB_SESSION_SECRET"), defaultSessionSecret),
+		SessionTTL:          ttl,
+		AdminUsername:       defaultIfEmpty(os.Getenv("ATOMHUB_ADMIN_USERNAME"), defaultAdminUsername),
+		AdminPassword:       defaultIfEmpty(os.Getenv("ATOMHUB_ADMIN_PASSWORD"), defaultAdminPassword),
+		GatewayToken:        defaultIfEmpty(os.Getenv("ATOMHUB_GATEWAY_TOKEN"), defaultGatewayToken),
+		DownstreamKeySecret: strings.TrimSpace(os.Getenv("ATOMHUB_DOWNSTREAM_KEY_SECRET")),
 	}
-	cfg.DownstreamKeySecret = defaultIfEmpty(os.Getenv("ATOMHUB_DOWNSTREAM_KEY_SECRET"), cfg.SessionSecret)
 
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err

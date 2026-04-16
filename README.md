@@ -44,7 +44,7 @@ All runtime configuration is provided through environment variables:
 - `ATOMHUB_ADMIN_USERNAME`
 - `ATOMHUB_ADMIN_PASSWORD`
 - `ATOMHUB_GATEWAY_TOKEN`
-- `ATOMHUB_DOWNSTREAM_KEY_SECRET` (optional override; falls back to `ATOMHUB_SESSION_SECRET`)
+- `ATOMHUB_DOWNSTREAM_KEY_SECRET`
 
 See `.env.example` for defaults.
 

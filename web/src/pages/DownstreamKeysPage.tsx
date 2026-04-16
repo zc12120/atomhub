@@ -51,6 +51,7 @@ export default function DownstreamKeysPage(): JSX.Element {
     try {
       const response = await api.createDownstreamKey(form);
       setCreatedToken(response.token);
+      setCopiedKeyID(null);
       setForm(emptyForm);
       await loadKeys();
     } catch (submitError) {
@@ -88,6 +89,7 @@ export default function DownstreamKeysPage(): JSX.Element {
     try {
       const response = await api.revealDownstreamKey(id);
       setRevealedTokens((current) => ({ ...current, [id]: response.token }));
+      setCopiedKeyID(null);
       return response.token;
     } catch (revealError) {
       const message = revealError instanceof Error ? revealError.message : '查看下游密钥失败。';
@@ -117,6 +119,7 @@ export default function DownstreamKeysPage(): JSX.Element {
       const response = await api.regenerateDownstreamKey(id);
       setRevealedTokens((current) => ({ ...current, [id]: response.token }));
       setCreatedToken(response.token);
+      setCopiedKeyID(null);
       await loadKeys();
     } catch (regenerateError) {
       const message = regenerateError instanceof Error ? regenerateError.message : '重新生成下游密钥失败。';
@@ -158,7 +161,7 @@ export default function DownstreamKeysPage(): JSX.Element {
       {createdToken ? (
         <div className="card token-card">
           <h3>已生成新的下游 token</h3>
-          <p className="muted">请立即复制并妥善保存此 token，页面刷新后将无法再次查看明文。</p>
+          <p className="muted">请立即复制并妥善保存此 token。以后也可以在列表里使用“查看密钥”或“复制密钥”。</p>
           <input value={createdToken} readOnly aria-label="新生成 token" />
         </div>
       ) : null}

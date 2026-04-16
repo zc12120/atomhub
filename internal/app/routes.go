@@ -29,7 +29,7 @@ func (a *App) routes() http.Handler {
 	adminMux.HandleFunc("POST /admin/downstream-keys", a.handleCreateDownstreamKey)
 	adminMux.HandleFunc("PUT /admin/downstream-keys/{id}", a.handleUpdateDownstreamKey)
 	adminMux.HandleFunc("DELETE /admin/downstream-keys/{id}", a.handleDeleteDownstreamKey)
-	adminMux.HandleFunc("GET /admin/downstream-keys/{id}/token", a.handleRevealDownstreamKey)
+	adminMux.HandleFunc("POST /admin/downstream-keys/{id}/token", a.handleRevealDownstreamKey)
 	adminMux.HandleFunc("POST /admin/downstream-keys/{id}/regenerate", a.handleRegenerateDownstreamKey)
 
 	mux.Handle("/admin/", auth.RequireAdmin(a.sessionManager, adminMux))
