@@ -31,10 +31,13 @@ describe('DashboardPage', () => {
   it('renders per-model rows and summary totals', () => {
     render(<DashboardPage data={mockData} />);
 
-    expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '仪表盘' })).toBeInTheDocument();
     expect(screen.getByText('gpt-4o')).toBeInTheDocument();
     expect(screen.getByText('claude-3-7-sonnet')).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: '150' })).toBeInTheDocument();
+    expect(screen.getAllByText('Prompt token').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Completion token').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Total token').length).toBeGreaterThan(0);
     expect(screen.getByText('250')).toBeInTheDocument();
   });
 });

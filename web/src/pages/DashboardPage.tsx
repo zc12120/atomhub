@@ -39,7 +39,7 @@ export default function DashboardPage({ data }: DashboardPageProps): JSX.Element
         if (cancelled) {
           return;
         }
-        const message = loadError instanceof Error ? loadError.message : 'Failed to load dashboard.';
+        const message = loadError instanceof Error ? loadError.message : '加载仪表盘失败。';
         setError(message);
       } finally {
         if (cancelled === false) {
@@ -58,29 +58,29 @@ export default function DashboardPage({ data }: DashboardPageProps): JSX.Element
   return (
     <section className="page-section">
       <header className="page-header">
-        <h2>Dashboard</h2>
+        <h2>仪表盘</h2>
       </header>
 
-      {loading ? <p className="muted">Loading usage totals…</p> : null}
+      {loading ? <p className="muted">正在加载用量汇总…</p> : null}
       {error ? <p className="error-text">{error}</p> : null}
 
       {dashboard ? (
         <>
           <div className="stats-grid">
-            <StatCard label="Prompt Tokens" value={dashboard.summary.prompt_tokens} />
-            <StatCard label="Completion Tokens" value={dashboard.summary.completion_tokens} />
-            <StatCard label="Total Tokens" value={dashboard.summary.total_tokens} />
+            <StatCard label="Prompt token" value={dashboard.summary.prompt_tokens} />
+            <StatCard label="Completion token" value={dashboard.summary.completion_tokens} />
+            <StatCard label="Total token" value={dashboard.summary.total_tokens} />
           </div>
 
           <div className="table-card">
             <table>
               <thead>
                 <tr>
-                  <th>Model</th>
-                  <th>Prompt</th>
-                  <th>Completion</th>
-                  <th>Total</th>
-                  <th>Requests</th>
+                  <th>模型</th>
+                  <th>Prompt token</th>
+                  <th>Completion token</th>
+                  <th>Total token</th>
+                  <th>请求数</th>
                 </tr>
               </thead>
               <tbody>

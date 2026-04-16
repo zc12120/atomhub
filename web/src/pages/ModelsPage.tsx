@@ -3,12 +3,24 @@ import { api, type AdminModel } from '../api';
 
 const numberFormatter = new Intl.NumberFormat();
 
-export default function ModelsPage(): JSX.Element {
-  const [items, setItems] = useState<AdminModel[]>([]);
-  const [loading, setLoading] = useState(true);
+interface ModelsPageProps {
+  data?: {
+    items: AdminModel[];
+  };
+}
+
+export default function ModelsPage({ data }: ModelsPageProps): JSX.Element {
+  const [items, setItems] = useState<AdminModel[]>(data?.items ?? []);
+  const [loading, setLoading] = useState(data === undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (data) {
+      setItems(data.items);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const load = async (): Promise<void> => {
@@ -24,7 +36,7 @@ export default function ModelsPage(): JSX.Element {
         if (cancelled) {
           return;
         }
-        const message = loadError instanceof Error ? loadError.message : 'Failed to load models.';
+        const message = loadError instanceof Error ? loadError.message : '加载模型列表失败。';
         setError(message);
       } finally {
         if (cancelled === false) {
@@ -38,25 +50,25 @@ export default function ModelsPage(): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [data]);
 
   return (
     <section className="page-section">
       <header className="page-header">
-        <h2>Models</h2>
+        <h2>模型</h2>
       </header>
 
-      {loading ? <p className="muted">Loading models…</p> : null}
+      {loading ? <p className="muted">正在加载模型列表…</p> : null}
       {error ? <p className="error-text">{error}</p> : null}
 
       <div className="table-card">
         <table>
           <thead>
             <tr>
-              <th>Model</th>
-              <th>Provider</th>
-              <th>Keys</th>
-              <th>Healthy Keys</th>
+              <th>模型</th>
+              <th>提供商</th>
+              <th>密钥数</th>
+              <th>可用密钥数</th>
             </tr>
           </thead>
           <tbody>
@@ -72,7 +84,7 @@ export default function ModelsPage(): JSX.Element {
             ) : (
               <tr>
                 <td colSpan={4} className="muted">
-                  No models found.
+                  暂无模型数据。
                 </td>
               </tr>
             )}
