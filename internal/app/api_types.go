@@ -16,9 +16,29 @@ type openAIChatRequest struct {
 }
 
 type openAIChatChoice struct {
-	Index        int                `json:"index"`
-	Message      openAIChatMessage  `json:"message"`
-	FinishReason string             `json:"finish_reason"`
+	Index        int               `json:"index"`
+	Message      openAIChatMessage `json:"message"`
+	FinishReason string            `json:"finish_reason"`
+}
+
+type openAIChatChunkDelta struct {
+	Role    string `json:"role,omitempty"`
+	Content string `json:"content,omitempty"`
+}
+
+type openAIChatChunkChoice struct {
+	Index        int                  `json:"index"`
+	Delta        openAIChatChunkDelta `json:"delta"`
+	FinishReason *string              `json:"finish_reason,omitempty"`
+}
+
+type openAIChatChunk struct {
+	ID      string                  `json:"id"`
+	Object  string                  `json:"object"`
+	Created int64                   `json:"created"`
+	Model   string                  `json:"model"`
+	Choices []openAIChatChunkChoice `json:"choices"`
+	Usage   map[string]int64        `json:"usage,omitempty"`
 }
 
 type openAIChatResponse struct {
@@ -81,7 +101,7 @@ type adminHealthResponse struct {
 }
 
 type adminDashboardResponse struct {
-	Items   any                 `json:"items"`
-	Summary any                 `json:"summary"`
-	Health  adminHealthSummary  `json:"health"`
+	Items   any                `json:"items"`
+	Summary any                `json:"summary"`
+	Health  adminHealthSummary `json:"health"`
 }

@@ -44,8 +44,8 @@ func (a *App) handleGatewayModels(w http.ResponseWriter, _ *http.Request) {
 	data := make([]map[string]any, 0, len(models))
 	for _, model := range models {
 		data = append(data, map[string]any{
-			"id": model,
-			"object": "model",
+			"id":       model,
+			"object":   "model",
 			"owned_by": "atomhub",
 		})
 	}
@@ -62,10 +62,6 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(req.Model) == "" || len(req.Messages) == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "model and messages are required"})
-		return
-	}
-	if req.Stream {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "streaming is not supported yet"})
 		return
 	}
 
@@ -96,6 +92,24 @@ func (a *App) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	a.stateStore.IncrementInflight(selected.KeyID)
 	defer a.stateStore.DecrementInflight(selected.KeyID)
+
+	if req.Stream {
+		started := time.Now()
+		streamUsage, responseStarted, streamErr := a.streamChatCompletion(w, r, key, req)
+		latency := time.Since(started)
+		normalized := usage.Normalize(usage.ParsedUsage{PromptTokens: streamUsage.PromptTokens, CompletionTokens: streamUsage.CompletionTokens, TotalTokens: streamUsage.TotalTokens})
+		usageTokens := types.UsageTokens{PromptTokens: normalized.PromptTokens, CompletionTokens: normalized.CompletionTokens, TotalTokens: normalized.TotalTokens}
+		_, _ = a.logStore.Insert(r.Context(), selected.KeyID, req.Model, usageTokens, latency, streamErr)
+		if streamErr != nil {
+			_ = a.stateStore.MarkFailure(r.Context(), selected.KeyID, streamErr)
+			if !responseStarted {
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": streamErr.Error()})
+			}
+			return
+		}
+		_ = a.stateStore.MarkSuccess(r.Context(), selected.KeyID)
+		return
+	}
 
 	started := time.Now()
 	result, tokenUsage, upstreamErr := a.proxyChatCompletion(r, key, req)
@@ -160,12 +174,16 @@ func (a *App) proxyAnthropic(r *http.Request, key types.UpstreamKey, req openAIC
 	}
 	system, messages := splitSystemMessages(req.Messages)
 	payload := map[string]any{
-		"model": req.Model,
-		"messages": messages,
+		"model":      req.Model,
+		"messages":   messages,
 		"max_tokens": coalesceMaxTokens(req.MaxTokens, 1024),
 	}
-	if system != "" { payload["system"] = system }
-	if req.Temperature != nil { payload["temperature"] = *req.Temperature }
+	if system != "" {
+		payload["system"] = system
+	}
+	if req.Temperature != nil {
+		payload["temperature"] = *req.Temperature
+	}
 	body, _ := json.Marshal(payload)
 	httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
@@ -184,9 +202,9 @@ func (a *App) proxyAnthropic(r *http.Request, key types.UpstreamKey, req openAIC
 		return openAIChatResponse{}, types.UsageTokens{}, fmt.Errorf("anthropic upstream returned %d: %s", resp.StatusCode, string(responseBody))
 	}
 	var parsed struct {
-		ID      string `json:"id"`
-		Model   string `json:"model"`
-		Usage   struct {
+		ID    string `json:"id"`
+		Model string `json:"model"`
+		Usage struct {
 			InputTokens  int64 `json:"input_tokens"`
 			OutputTokens int64 `json:"output_tokens"`
 		} `json:"usage"`
@@ -206,7 +224,9 @@ func (a *App) proxyAnthropic(r *http.Request, key types.UpstreamKey, req openAIC
 		}
 	}
 	finish := "stop"
-	if parsed.StopReason == "max_tokens" { finish = "length" }
+	if parsed.StopReason == "max_tokens" {
+		finish = "length"
+	}
 	out := openAIChatResponse{ID: parsed.ID, Object: "chat.completion", Created: time.Now().Unix(), Model: defaultString(parsed.Model, req.Model), Choices: []openAIChatChoice{{Index: 0, Message: openAIChatMessage{Role: "assistant", Content: strings.Join(parts, "\n")}, FinishReason: finish}}, Usage: map[string]int64{"prompt_tokens": parsed.Usage.InputTokens, "completion_tokens": parsed.Usage.OutputTokens, "total_tokens": parsed.Usage.InputTokens + parsed.Usage.OutputTokens}}
 	return out, types.UsageTokens{PromptTokens: parsed.Usage.InputTokens, CompletionTokens: parsed.Usage.OutputTokens, TotalTokens: parsed.Usage.InputTokens + parsed.Usage.OutputTokens}, nil
 }
@@ -231,20 +251,32 @@ func (a *App) proxyGemini(r *http.Request, key types.UpstreamKey, req openAIChat
 	}
 	for _, msg := range messages {
 		role := "user"
-		if msg.Role == "assistant" { role = "model" }
+		if msg.Role == "assistant" {
+			role = "model"
+		}
 		contents = append(contents, map[string]any{"role": role, "parts": []map[string]string{{"text": msg.Content}}})
 	}
 	payload := map[string]any{"contents": contents}
 	generationConfig := map[string]any{}
-	if req.Temperature != nil { generationConfig["temperature"] = *req.Temperature }
-	if req.MaxTokens != nil { generationConfig["maxOutputTokens"] = *req.MaxTokens }
-	if len(generationConfig) > 0 { payload["generationConfig"] = generationConfig }
+	if req.Temperature != nil {
+		generationConfig["temperature"] = *req.Temperature
+	}
+	if req.MaxTokens != nil {
+		generationConfig["maxOutputTokens"] = *req.MaxTokens
+	}
+	if len(generationConfig) > 0 {
+		payload["generationConfig"] = generationConfig
+	}
 	body, _ := json.Marshal(payload)
 	httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, parsedURL.String(), bytes.NewReader(body))
-	if err != nil { return openAIChatResponse{}, types.UsageTokens{}, err }
+	if err != nil {
+		return openAIChatResponse{}, types.UsageTokens{}, err
+	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	resp, err := a.upstreamClient.Do(httpReq)
-	if err != nil { return openAIChatResponse{}, types.UsageTokens{}, err }
+	if err != nil {
+		return openAIChatResponse{}, types.UsageTokens{}, err
+	}
 	defer resp.Body.Close()
 	responseBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -253,8 +285,10 @@ func (a *App) proxyGemini(r *http.Request, key types.UpstreamKey, req openAIChat
 	var parsed struct {
 		Candidates []struct {
 			FinishReason string `json:"finishReason"`
-			Content struct {
-				Parts []struct { Text string `json:"text"` } `json:"parts"`
+			Content      struct {
+				Parts []struct {
+					Text string `json:"text"`
+				} `json:"parts"`
 			} `json:"content"`
 		} `json:"candidates"`
 		UsageMetadata struct {
@@ -263,19 +297,27 @@ func (a *App) proxyGemini(r *http.Request, key types.UpstreamKey, req openAIChat
 			TotalTokenCount      int64 `json:"totalTokenCount"`
 		} `json:"usageMetadata"`
 	}
-	if err := json.Unmarshal(responseBody, &parsed); err != nil { return openAIChatResponse{}, types.UsageTokens{}, err }
+	if err := json.Unmarshal(responseBody, &parsed); err != nil {
+		return openAIChatResponse{}, types.UsageTokens{}, err
+	}
 	text := ""
 	finish := "stop"
 	if len(parsed.Candidates) > 0 {
 		parts := make([]string, 0, len(parsed.Candidates[0].Content.Parts))
 		for _, part := range parsed.Candidates[0].Content.Parts {
-			if strings.TrimSpace(part.Text) != "" { parts = append(parts, part.Text) }
+			if strings.TrimSpace(part.Text) != "" {
+				parts = append(parts, part.Text)
+			}
 		}
 		text = strings.Join(parts, "\n")
-		if strings.Contains(strings.ToLower(parsed.Candidates[0].FinishReason), "max") { finish = "length" }
+		if strings.Contains(strings.ToLower(parsed.Candidates[0].FinishReason), "max") {
+			finish = "length"
+		}
 	}
 	usageMap := map[string]int64{"prompt_tokens": parsed.UsageMetadata.PromptTokenCount, "completion_tokens": parsed.UsageMetadata.CandidatesTokenCount, "total_tokens": parsed.UsageMetadata.TotalTokenCount}
-	if usageMap["total_tokens"] == 0 { usageMap["total_tokens"] = usageMap["prompt_tokens"] + usageMap["completion_tokens"] }
+	if usageMap["total_tokens"] == 0 {
+		usageMap["total_tokens"] = usageMap["prompt_tokens"] + usageMap["completion_tokens"]
+	}
 	out := openAIChatResponse{ID: uuid.NewString(), Object: "chat.completion", Created: time.Now().Unix(), Model: req.Model, Choices: []openAIChatChoice{{Index: 0, Message: openAIChatMessage{Role: "assistant", Content: text}, FinishReason: finish}}, Usage: usageMap}
 	return out, types.UsageTokens{PromptTokens: usageMap["prompt_tokens"], CompletionTokens: usageMap["completion_tokens"], TotalTokens: usageMap["total_tokens"]}, nil
 }
@@ -285,7 +327,9 @@ func splitSystemMessages(messages []openAIChatMessage) (string, []openAIChatMess
 	filtered := make([]openAIChatMessage, 0, len(messages))
 	for _, msg := range messages {
 		if strings.EqualFold(msg.Role, "system") {
-			if strings.TrimSpace(msg.Content) != "" { systemParts = append(systemParts, msg.Content) }
+			if strings.TrimSpace(msg.Content) != "" {
+				systemParts = append(systemParts, msg.Content)
+			}
 			continue
 		}
 		filtered = append(filtered, msg)
@@ -294,12 +338,16 @@ func splitSystemMessages(messages []openAIChatMessage) (string, []openAIChatMess
 }
 
 func coalesceMaxTokens(v *int, fallback int) int {
-	if v == nil || *v <= 0 { return fallback }
+	if v == nil || *v <= 0 {
+		return fallback
+	}
 	return *v
 }
 
 func defaultString(v, fallback string) string {
-	if strings.TrimSpace(v) == "" { return fallback }
+	if strings.TrimSpace(v) == "" {
+		return fallback
+	}
 	return strings.TrimSpace(v)
 }
 

@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"io"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,6 +118,190 @@ func TestGatewayModelsAndProxyOpenAI(t *testing.T) {
 	}
 	if len(logs) != 1 || logs[0].TotalTokens != 8 {
 		t.Fatalf("unexpected logs: %#v", logs)
+	}
+}
+
+func TestChatCompletionsStreamOpenAI(t *testing.T) {
+	app, err := New(testConfig(t))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	defer app.Close()
+
+	var sawStreamRequest bool
+	app.upstreamClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v1/chat/completions" {
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(`{"error":"not found"}`)), Header: make(http.Header)}, nil
+		}
+		requestBody, _ := io.ReadAll(req.Body)
+		sawStreamRequest = bytes.Contains(requestBody, []byte(`"stream":true`))
+
+		body := strings.Join([]string{
+			`data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":1,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"role":"assistant"}]}`,
+			``,
+			`data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":1,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"content":"hello stream"}}]}`,
+			``,
+			`data: {"id":"chatcmpl-stream","object":"chat.completion.chunk","created":1,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":1,"total_tokens":3}}`,
+			``,
+			`data: [DONE]`,
+			``,
+		}, "\n")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		}, nil
+	})}
+
+	seedKeyWithModel(t, app, types.UpstreamKey{Name: "openai-stream-key", Provider: types.ProviderOpenAI, BaseURL: "https://example.com", APIKey: "sk-test", Enabled: true}, "gpt-4o-mini")
+
+	chatBody := []byte(`{"model":"gpt-4o-mini","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
+	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(chatBody))
+	chatReq.Header.Set("Authorization", "Bearer gateway-token")
+	chatRec := httptest.NewRecorder()
+	app.Handler.ServeHTTP(chatRec, chatReq)
+
+	if chatRec.Code != http.StatusOK {
+		t.Fatalf("stream chat status = %d body=%s", chatRec.Code, chatRec.Body.String())
+	}
+	if !strings.HasPrefix(chatRec.Header().Get("Content-Type"), "text/event-stream") {
+		t.Fatalf("expected text/event-stream content type, got %q", chatRec.Header().Get("Content-Type"))
+	}
+	body := chatRec.Body.String()
+	if !strings.Contains(body, "hello stream") {
+		t.Fatalf("expected streamed content, got %s", body)
+	}
+	if !strings.Contains(body, "data: [DONE]") {
+		t.Fatalf("expected done marker, got %s", body)
+	}
+	if !sawStreamRequest {
+		t.Fatalf("expected upstream request body to include stream=true")
+	}
+
+	logs, err := app.logStore.ListRecent(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("list logs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].TotalTokens != 3 {
+		t.Fatalf("unexpected logs: %#v", logs)
+	}
+}
+
+func TestChatCompletionsStreamAnthropicFallback(t *testing.T) {
+	app, err := New(testConfig(t))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	defer app.Close()
+
+	app.upstreamClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v1/messages" {
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(`{"error":"not found"}`)), Header: make(http.Header)}, nil
+		}
+		body := `{"id":"msg-test","model":"claude-3-5-haiku","usage":{"input_tokens":6,"output_tokens":4},"content":[{"type":"text","text":"hello from claude"}],"stop_reason":"end_turn"}`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+		}, nil
+	})}
+
+	seedKeyWithModel(t, app, types.UpstreamKey{Name: "anthropic-stream-key", Provider: types.ProviderAnthropic, BaseURL: "https://example.com", APIKey: "anthropic-test", Enabled: true}, "claude-3-5-haiku")
+
+	chatBody := []byte(`{"model":"claude-3-5-haiku","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
+	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(chatBody))
+	chatReq.Header.Set("Authorization", "Bearer gateway-token")
+	chatRec := httptest.NewRecorder()
+	app.Handler.ServeHTTP(chatRec, chatReq)
+
+	if chatRec.Code != http.StatusOK {
+		t.Fatalf("stream chat status = %d body=%s", chatRec.Code, chatRec.Body.String())
+	}
+	if !strings.HasPrefix(chatRec.Header().Get("Content-Type"), "text/event-stream") {
+		t.Fatalf("expected text/event-stream content type, got %q", chatRec.Header().Get("Content-Type"))
+	}
+	body := chatRec.Body.String()
+	if !strings.Contains(body, "chat.completion.chunk") || !strings.Contains(body, "hello from claude") {
+		t.Fatalf("expected synthesized stream chunks, got %s", body)
+	}
+	if !strings.Contains(body, "data: [DONE]") {
+		t.Fatalf("expected done marker, got %s", body)
+	}
+
+	logs, err := app.logStore.ListRecent(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("list logs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].TotalTokens != 10 {
+		t.Fatalf("unexpected logs: %#v", logs)
+	}
+}
+
+func TestChatCompletionsStreamGeminiFallback(t *testing.T) {
+	app, err := New(testConfig(t))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	defer app.Close()
+
+	app.upstreamClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if !strings.HasPrefix(req.URL.Path, "/v1beta/models/gemini-2.0-flash:generateContent") {
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(`{"error":"not found"}`)), Header: make(http.Header)}, nil
+		}
+		body := `{"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":"hello from gemini"}]}}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":2,"totalTokenCount":5}}`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+		}, nil
+	})}
+
+	seedKeyWithModel(t, app, types.UpstreamKey{Name: "gemini-stream-key", Provider: types.ProviderGemini, BaseURL: "https://example.com", APIKey: "gemini-test", Enabled: true}, "gemini-2.0-flash")
+
+	chatBody := []byte(`{"model":"gemini-2.0-flash","stream":true,"messages":[{"role":"user","content":"hi"}]}`)
+	chatReq := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(chatBody))
+	chatReq.Header.Set("Authorization", "Bearer gateway-token")
+	chatRec := httptest.NewRecorder()
+	app.Handler.ServeHTTP(chatRec, chatReq)
+
+	if chatRec.Code != http.StatusOK {
+		t.Fatalf("stream chat status = %d body=%s", chatRec.Code, chatRec.Body.String())
+	}
+	if !strings.HasPrefix(chatRec.Header().Get("Content-Type"), "text/event-stream") {
+		t.Fatalf("expected text/event-stream content type, got %q", chatRec.Header().Get("Content-Type"))
+	}
+	body := chatRec.Body.String()
+	if !strings.Contains(body, "chat.completion.chunk") || !strings.Contains(body, "hello from gemini") {
+		t.Fatalf("expected synthesized stream chunks, got %s", body)
+	}
+	if !strings.Contains(body, "data: [DONE]") {
+		t.Fatalf("expected done marker, got %s", body)
+	}
+
+	logs, err := app.logStore.ListRecent(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("list logs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].TotalTokens != 5 {
+		t.Fatalf("unexpected logs: %#v", logs)
+	}
+}
+
+func seedKeyWithModel(t *testing.T, app *App, key types.UpstreamKey, model string) {
+	t.Helper()
+
+	createdKey, err := app.keyStore.Create(context.Background(), key)
+	if err != nil {
+		t.Fatalf("create key: %v", err)
+	}
+	if err := app.stateStore.Ensure(context.Background(), createdKey.ID); err != nil {
+		t.Fatalf("ensure state: %v", err)
+	}
+	if err := app.modelStore.ReplaceForKey(context.Background(), createdKey.ID, []string{model}); err != nil {
+		t.Fatalf("replace key models: %v", err)
+	}
+	if err := app.catalog.Rebuild(context.Background()); err != nil {
+		t.Fatalf("rebuild catalog: %v", err)
 	}
 }
 
