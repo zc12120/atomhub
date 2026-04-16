@@ -46,7 +46,7 @@ export default function RequestsPage({ data }: RequestsPageProps): JSX.Element {
         if (cancelled) {
           return;
         }
-        const message = loadError instanceof Error ? loadError.message : 'Failed to load recent requests.';
+        const message = loadError instanceof Error ? loadError.message : '加载请求记录失败。';
         setError(message);
       } finally {
         if (cancelled === false) {
@@ -110,18 +110,18 @@ export default function RequestsPage({ data }: RequestsPageProps): JSX.Element {
   return (
     <section className="page-section">
       <header className="page-header">
-        <h2>Requests</h2>
+        <h2>请求记录</h2>
       </header>
 
       <div className="card filter-card">
         <label htmlFor="request-model-filter">
-          Model Filter
+          模型筛选
           <select
             id="request-model-filter"
             value={selectedModel}
             onChange={(event) => setSelectedModel(event.target.value)}
           >
-            <option value="">All models</option>
+            <option value="">全部模型</option>
             {response?.filters.models.map((model) => (
               <option key={model} value={model}>
                 {model}
@@ -131,27 +131,27 @@ export default function RequestsPage({ data }: RequestsPageProps): JSX.Element {
         </label>
       </div>
 
-      {loading ? <p className="muted">Loading recent requests…</p> : null}
+      {loading ? <p className="muted">正在加载最近请求…</p> : null}
       {error ? <p className="error-text">{error}</p> : null}
 
       {summary ? (
         <>
           <div className="stats-grid">
-            <StatCard label="Requests" value={summary.request_count} />
-            <StatCard label="Errors" value={summary.error_count} />
-            <StatCard label="Prompt Tokens" value={summary.prompt_tokens} />
-            <StatCard label="Completion Tokens" value={summary.completion_tokens} />
-            <StatCard label="Total Tokens" value={summary.total_tokens} />
+            <StatCard label="请求数" value={summary.request_count} />
+            <StatCard label="错误数" value={summary.error_count} />
+            <StatCard label="Prompt token" value={summary.prompt_tokens} />
+            <StatCard label="Completion token" value={summary.completion_tokens} />
+            <StatCard label="Total token" value={summary.total_tokens} />
           </div>
 
           <div className="table-card">
             <table>
               <thead>
                 <tr>
-                  <th>Model</th>
-                  <th>Requests</th>
-                  <th>Total Tokens</th>
-                  <th>Usage Share</th>
+                  <th>模型</th>
+                  <th>请求数</th>
+                  <th>Total token</th>
+                  <th>占比</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,7 +174,7 @@ export default function RequestsPage({ data }: RequestsPageProps): JSX.Element {
                 ) : (
                   <tr>
                     <td colSpan={4} className="muted">
-                      No requests found for the current filter.
+                      没有符合当前筛选条件的请求记录。
                     </td>
                   </tr>
                 )}
@@ -186,14 +186,14 @@ export default function RequestsPage({ data }: RequestsPageProps): JSX.Element {
             <table>
               <thead>
                 <tr>
-                  <th>Time</th>
-                  <th>Model</th>
-                  <th>Key</th>
-                  <th>Provider</th>
-                  <th>Status</th>
-                  <th>Latency</th>
-                  <th>Total Tokens</th>
-                  <th>Error</th>
+                  <th>时间</th>
+                  <th>模型</th>
+                  <th>密钥</th>
+                  <th>提供商</th>
+                  <th>状态</th>
+                  <th>延迟</th>
+                  <th>Total token</th>
+                  <th>错误</th>
                 </tr>
               </thead>
               <tbody>
@@ -213,7 +213,7 @@ export default function RequestsPage({ data }: RequestsPageProps): JSX.Element {
                 ) : (
                   <tr>
                     <td colSpan={8} className="muted">
-                      No requests found for the current filter.
+                      没有符合当前筛选条件的请求记录。
                     </td>
                   </tr>
                 )}

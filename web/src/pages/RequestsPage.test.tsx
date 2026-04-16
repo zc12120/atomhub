@@ -65,7 +65,7 @@ describe('RequestsPage', () => {
   it('renders summary cards, model totals, and request rows', () => {
     render(<RequestsPage data={mockData} />);
 
-    expect(screen.getByRole('heading', { name: /requests/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '请求记录' })).toBeInTheDocument();
     expect(screen.getByText('63')).toBeInTheDocument();
     expect(screen.getAllByText('gpt-4o-mini').length).toBeGreaterThan(0);
     expect(screen.getAllByText('claude-3-5-haiku').length).toBeGreaterThan(0);
@@ -76,7 +76,7 @@ describe('RequestsPage', () => {
   it('filters the rendered table and model totals client-side when the model filter changes', () => {
     render(<RequestsPage data={mockData} />);
 
-    fireEvent.change(screen.getByRole('combobox', { name: /model filter/i }), { target: { value: 'claude-3-5-haiku' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /模型筛选/i }), { target: { value: 'claude-3-5-haiku' } });
 
     expect(screen.getByText('Claude')).toBeInTheDocument();
     expect(screen.queryByText('Primary OpenAI')).not.toBeInTheDocument();

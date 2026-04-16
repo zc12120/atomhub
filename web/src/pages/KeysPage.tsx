@@ -25,7 +25,7 @@ export default function KeysPage(): JSX.Element {
       const response = await api.getKeys();
       setItems(response.items);
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Failed to load keys.';
+      const message = loadError instanceof Error ? loadError.message : '加载密钥列表失败。';
       setError(message);
     } finally {
       setLoading(false);
@@ -45,7 +45,7 @@ export default function KeysPage(): JSX.Element {
       setForm(emptyForm);
       await loadKeys();
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : 'Failed to create key.';
+      const message = submitError instanceof Error ? submitError.message : '创建密钥失败。';
       setError(message);
     } finally {
       setSubmitting(false);
@@ -58,7 +58,7 @@ export default function KeysPage(): JSX.Element {
       await api.probeKey(id);
       await loadKeys();
     } catch (probeError) {
-      const message = probeError instanceof Error ? probeError.message : 'Failed to probe key.';
+      const message = probeError instanceof Error ? probeError.message : '探测密钥失败。';
       setError(message);
     }
   };
@@ -69,7 +69,7 @@ export default function KeysPage(): JSX.Element {
       await api.deleteKey(id);
       await loadKeys();
     } catch (deleteError) {
-      const message = deleteError instanceof Error ? deleteError.message : 'Failed to delete key.';
+      const message = deleteError instanceof Error ? deleteError.message : '删除密钥失败。';
       setError(message);
     }
   };
@@ -83,7 +83,7 @@ export default function KeysPage(): JSX.Element {
       }
       await loadKeys();
     } catch (updateError) {
-      const message = updateError instanceof Error ? updateError.message : 'Failed to update key.';
+      const message = updateError instanceof Error ? updateError.message : '更新密钥失败。';
       setError(message);
     }
   };
@@ -114,7 +114,7 @@ export default function KeysPage(): JSX.Element {
       setEditForm({ name: '', provider: 'openai', base_url: '', api_key: '' });
       await loadKeys();
     } catch (updateError) {
-      const message = updateError instanceof Error ? updateError.message : 'Failed to update key.';
+      const message = updateError instanceof Error ? updateError.message : '更新密钥失败。';
       setError(message);
     }
   };
@@ -122,17 +122,17 @@ export default function KeysPage(): JSX.Element {
   return (
     <section className="page-section">
       <header className="page-header">
-        <h2>Keys</h2>
+        <h2>密钥</h2>
       </header>
 
       <form className="card form-grid" onSubmit={handleSubmit}>
-        <h3>Add upstream key</h3>
+        <h3>新增上游密钥</h3>
         <label>
-          Label
+          名称
           <input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required />
         </label>
         <label>
-          Provider
+          提供商
           <select value={form.provider} onChange={(event) => setForm((current) => ({ ...current, provider: event.target.value }))}>
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
@@ -141,29 +141,29 @@ export default function KeysPage(): JSX.Element {
         </label>
         <label>
           Base URL
-          <input value={form.base_url} onChange={(event) => setForm((current) => ({ ...current, base_url: event.target.value }))} placeholder="optional" />
+          <input value={form.base_url} onChange={(event) => setForm((current) => ({ ...current, base_url: event.target.value }))} placeholder="可选" />
         </label>
         <label className="full-width">
           API Key
           <input value={form.api_key} onChange={(event) => setForm((current) => ({ ...current, api_key: event.target.value }))} required />
         </label>
-        <button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save key'}</button>
+        <button type="submit" disabled={submitting}>{submitting ? '保存中…' : '保存密钥'}</button>
       </form>
 
-      {loading ? <p className="muted">Loading keys…</p> : null}
+      {loading ? <p className="muted">正在加载密钥列表…</p> : null}
       {error ? <p className="error-text">{error}</p> : null}
 
       <div className="table-card">
         <table>
           <thead>
             <tr>
-              <th>Label</th>
-              <th>Provider</th>
-              <th>Status</th>
-              <th>Enabled</th>
-              <th>Last Used</th>
-              <th>Last Error</th>
-              <th>Actions</th>
+              <th>名称</th>
+              <th>提供商</th>
+              <th>状态</th>
+              <th>启用</th>
+              <th>最近使用</th>
+              <th>最近错误</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -174,17 +174,17 @@ export default function KeysPage(): JSX.Element {
                     <td>{item.label}</td>
                     <td>{item.provider}</td>
                     <td>{item.status}</td>
-                    <td>{item.enabled ? 'Yes' : 'No'}</td>
+                    <td>{item.enabled ? '是' : '否'}</td>
                     <td>{item.last_used_at ?? '—'}</td>
                     <td>{item.last_error ?? '—'}</td>
                     <td>
                       <div className="row-actions">
-                        <button type="button" className="secondary-button" onClick={() => handleStartEdit(item)}>Edit</button>
+                        <button type="button" className="secondary-button" onClick={() => handleStartEdit(item)}>编辑</button>
                         <button type="button" className="secondary-button" onClick={() => void handleToggleEnabled(item)}>
-                          {item.enabled ? 'Disable' : 'Enable'}
+                          {item.enabled ? '停用' : '启用'}
                         </button>
-                        <button type="button" className="secondary-button" onClick={() => void handleProbe(item.id)}>Probe</button>
-                        <button type="button" className="danger-button" onClick={() => void handleDelete(item.id)}>Delete</button>
+                        <button type="button" className="secondary-button" onClick={() => void handleProbe(item.id)}>探测</button>
+                        <button type="button" className="danger-button" onClick={() => void handleDelete(item.id)}>删除</button>
                       </div>
                     </td>
                   </tr>
@@ -193,14 +193,14 @@ export default function KeysPage(): JSX.Element {
                       <td colSpan={7}>
                         <div className="inline-editor">
                           <label>
-                            Edit label
+                            编辑名称
                             <input
                               value={editForm.name ?? ''}
                               onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))}
                             />
                           </label>
                           <label>
-                            Edit provider
+                            编辑提供商
                             <select
                               value={editForm.provider ?? 'openai'}
                               onChange={(event) => setEditForm((current) => ({ ...current, provider: event.target.value }))}
@@ -211,21 +211,21 @@ export default function KeysPage(): JSX.Element {
                             </select>
                           </label>
                           <label>
-                            Edit base URL
+                            编辑 Base URL
                             <input
                               value={editForm.base_url ?? ''}
                               onChange={(event) => setEditForm((current) => ({ ...current, base_url: event.target.value }))}
                             />
                           </label>
                           <label>
-                            New API key
+                            新的 API Key
                             <input
                               value={editForm.api_key ?? ''}
                               onChange={(event) => setEditForm((current) => ({ ...current, api_key: event.target.value }))}
                             />
                           </label>
                           <div className="row-actions">
-                            <button type="button" onClick={() => void handleSaveEdit(item.id)}>Save changes</button>
+                            <button type="button" onClick={() => void handleSaveEdit(item.id)}>保存修改</button>
                             <button
                               type="button"
                               className="secondary-button"
@@ -234,7 +234,7 @@ export default function KeysPage(): JSX.Element {
                                 setEditForm({ name: '', provider: 'openai', base_url: '', api_key: '' });
                               }}
                             >
-                              Cancel
+                              取消
                             </button>
                           </div>
                         </div>
@@ -246,7 +246,7 @@ export default function KeysPage(): JSX.Element {
             ) : (
               <tr>
                 <td colSpan={7} className="muted">
-                  No keys found.
+                  暂无密钥。
                 </td>
               </tr>
             )}

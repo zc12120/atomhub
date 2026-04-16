@@ -45,7 +45,7 @@ describe('KeysPage', () => {
 
     expect(await screen.findByText('Primary key')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /disable/i }));
+    fireEvent.click(screen.getByRole('button', { name: /停用/i }));
 
     await waitFor(() => {
       expect(api.updateKey).toHaveBeenCalledWith(1, { enabled: false });
@@ -58,17 +58,17 @@ describe('KeysPage', () => {
 
     expect(await screen.findByText('Primary key')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    fireEvent.click(screen.getByRole('button', { name: /编辑/i }));
 
-    const labelInput = screen.getByLabelText('Edit label');
-    const baseURLInput = screen.getByLabelText('Edit base URL');
-    const apiKeyInput = screen.getByLabelText('New API key');
+    const labelInput = screen.getByLabelText('编辑名称');
+    const baseURLInput = screen.getByLabelText('编辑 Base URL');
+    const apiKeyInput = screen.getByLabelText('新的 API Key');
 
     fireEvent.change(labelInput, { target: { value: 'Renamed key' } });
     fireEvent.change(baseURLInput, { target: { value: 'https://proxy.example.com' } });
     fireEvent.change(apiKeyInput, { target: { value: 'sk-updated' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    fireEvent.click(screen.getByRole('button', { name: /保存修改/i }));
 
     await waitFor(() => {
       expect(api.updateKey).toHaveBeenCalledWith(1, {
