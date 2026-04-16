@@ -30,8 +30,23 @@ export default function LoginPage({ session, onLogin }: LoginPageProps): JSX.Ele
       }
       onLogin(nextSession);
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : '登录失败。';
-      setError(message);
+      const fallbackMessage = '登录失败。';
+      if (submitError instanceof Error) {
+        const normalized = submitError.message.trim().toLowerCase();
+        if (
+          normalized === 'invalid credentials' ||
+          normalized === 'unauthorized' ||
+          normalized.startsWith('request failed: 401')
+        ) {
+          setError('用户名或密码错误。');
+        } else if (submitError.message.trim()) {
+          setError(submitError.message);
+        } else {
+          setError(fallbackMessage);
+        }
+      } else {
+        setError(fallbackMessage);
+      }
     } finally {
       setSubmitting(false);
     }
