@@ -1,0 +1,9 @@
+.worktrees/
+web/node_modules/
+web/dist/
+data/
+*.db
+*.sqlite
+*.sqlite3
+.env
+.DS_Store
