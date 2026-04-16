@@ -21,13 +21,14 @@ const (
 
 // Config contains runtime configuration for the AtomHub backend foundation.
 type Config struct {
-	HTTPAddr      string
-	DBPath        string
-	SessionSecret string
-	SessionTTL    time.Duration
-	AdminUsername string
-	AdminPassword string
-	GatewayToken  string
+	HTTPAddr            string
+	DBPath              string
+	SessionSecret       string
+	SessionTTL          time.Duration
+	AdminUsername       string
+	AdminPassword       string
+	GatewayToken        string
+	DownstreamKeySecret string
 }
 
 // Load parses configuration from environment variables.
@@ -50,6 +51,7 @@ func Load() (Config, error) {
 		AdminPassword: defaultIfEmpty(os.Getenv("ATOMHUB_ADMIN_PASSWORD"), defaultAdminPassword),
 		GatewayToken:  defaultIfEmpty(os.Getenv("ATOMHUB_GATEWAY_TOKEN"), defaultGatewayToken),
 	}
+	cfg.DownstreamKeySecret = defaultIfEmpty(os.Getenv("ATOMHUB_DOWNSTREAM_KEY_SECRET"), cfg.SessionSecret)
 
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -74,6 +76,8 @@ func (c Config) Validate() error {
 		return errors.New("admin password is required")
 	case strings.TrimSpace(c.GatewayToken) == "":
 		return errors.New("gateway token is required")
+	case strings.TrimSpace(c.DownstreamKeySecret) == "":
+		return errors.New("downstream key secret is required")
 	}
 
 	if dir := filepath.Dir(c.DBPath); dir == "" {

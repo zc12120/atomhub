@@ -72,7 +72,7 @@ func New(cfg config.Config) (*App, error) {
 
 	sessionManager := auth.NewSessionManager(cfg.SessionSecret, cfg.SessionTTL)
 	keyStore := store.NewKeyStore(db)
-	downstreamKeyStore := store.NewDownstreamKeyStore(db)
+	downstreamKeyStore := store.NewDownstreamKeyStore(db, cfg.DownstreamKeySecret)
 	modelStore := store.NewModelStore(db)
 	stateStore := store.NewStateStore(db)
 	logStore := store.NewLogStore(db)

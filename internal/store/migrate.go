@@ -45,6 +45,7 @@ func Migrate(db *sql.DB) error {
             name text not null,
             token_prefix text not null,
             token_hash text not null unique,
+            encrypted_token text,
             enabled integer not null default 1,
             last_used_at text,
             request_count integer not null default 0,
@@ -75,6 +76,9 @@ func Migrate(db *sql.DB) error {
 		}
 	}
 	if err := ensureColumnExists(db, "request_logs", "downstream_key_id", "integer"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists(db, "downstream_keys", "encrypted_token", "text"); err != nil {
 		return err
 	}
 	return nil

@@ -164,6 +164,8 @@ type adminDownstreamKeyItem struct {
 	ID               int64      `json:"id"`
 	Name             string     `json:"name"`
 	TokenPrefix      string     `json:"token_prefix"`
+	MaskedToken      string     `json:"masked_token"`
+	CanReveal        bool       `json:"can_reveal"`
 	Enabled          bool       `json:"enabled"`
 	LastUsedAt       *time.Time `json:"last_used_at,omitempty"`
 	RequestCount     int64      `json:"request_count"`
@@ -181,4 +183,9 @@ type adminDownstreamKeysResponse struct {
 type adminDownstreamKeyCreateResponse struct {
 	Item  adminDownstreamKeyItem `json:"item"`
 	Token string                 `json:"token"`
+}
+
+type adminDownstreamKeyTokenResponse struct {
+	ID    int64  `json:"id"`
+	Token string `json:"token"`
 }

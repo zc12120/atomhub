@@ -7,6 +7,8 @@ vi.mock('../api', () => ({
   api: {
     getDownstreamKeys: vi.fn(),
     createDownstreamKey: vi.fn(),
+    revealDownstreamKey: vi.fn(),
+    regenerateDownstreamKey: vi.fn(),
     updateDownstreamKey: vi.fn(),
     deleteDownstreamKey: vi.fn()
   }
@@ -16,6 +18,8 @@ const baseItem = {
   id: 1,
   name: '渠道 A',
   token_prefix: 'atom_abcd1234',
+  masked_token: 'atom_abcd1234••••••••••',
+  can_reveal: true,
   enabled: true,
   last_used_at: '2026-04-16T00:00:00Z',
   request_count: 8,
@@ -43,6 +47,14 @@ describe('DownstreamKeysPage', () => {
       },
       token: 'atom_token_plaintext_once'
     });
+    vi.mocked(api.revealDownstreamKey).mockResolvedValue({
+      id: 1,
+      token: 'atom_revealed_token'
+    });
+    vi.mocked(api.regenerateDownstreamKey).mockResolvedValue({
+      id: 1,
+      token: 'atom_regenerated_token'
+    });
     vi.mocked(api.updateDownstreamKey).mockResolvedValue({
       ...baseItem,
       enabled: false
@@ -54,7 +66,7 @@ describe('DownstreamKeysPage', () => {
     render(<DownstreamKeysPage />);
 
     expect(await screen.findByRole('heading', { name: '下游密钥' })).toBeInTheDocument();
-    expect(screen.getByText('atom_abcd1234')).toBeInTheDocument();
+    expect(screen.getByText('atom_abcd1234••••••••••')).toBeInTheDocument();
     expect(screen.getByText('150')).toBeInTheDocument();
     expect(screen.getByText('8')).toBeInTheDocument();
     expect(screen.getByText('启用中')).toBeInTheDocument();
@@ -96,5 +108,34 @@ describe('DownstreamKeysPage', () => {
       expect(api.deleteDownstreamKey).toHaveBeenCalledWith(1);
     });
     expect(api.getDownstreamKeys).toHaveBeenCalledTimes(3);
+  });
+
+  it('reveals, copies, and regenerates a key from row actions', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', {
+      clipboard: {
+        writeText
+      }
+    });
+
+    render(<DownstreamKeysPage />);
+    await screen.findByText('渠道 A');
+
+    fireEvent.click(screen.getByRole('button', { name: '查看密钥' }));
+    await waitFor(() => {
+      expect(api.revealDownstreamKey).toHaveBeenCalledWith(1);
+    });
+    expect(screen.getByDisplayValue('atom_revealed_token')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '复制密钥' }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('atom_revealed_token');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '重新生成' }));
+    await waitFor(() => {
+      expect(api.regenerateDownstreamKey).toHaveBeenCalledWith(1);
+    });
+    expect(screen.getAllByDisplayValue('atom_regenerated_token')).toHaveLength(2);
   });
 });

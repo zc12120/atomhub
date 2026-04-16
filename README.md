@@ -44,6 +44,7 @@ All runtime configuration is provided through environment variables:
 - `ATOMHUB_ADMIN_USERNAME`
 - `ATOMHUB_ADMIN_PASSWORD`
 - `ATOMHUB_GATEWAY_TOKEN`
+- `ATOMHUB_DOWNSTREAM_KEY_SECRET` (optional override; falls back to `ATOMHUB_SESSION_SECRET`)
 
 See `.env.example` for defaults.
 
@@ -109,4 +110,4 @@ curl http://localhost:8080/v1/chat/completions \
 ```
 
 ### Using UI-generated downstream keys
-You can keep using `ATOMHUB_GATEWAY_TOKEN` as a super-token, but the admin UI can now generate per-client downstream keys on the `下游密钥` page. Those generated bearer keys work against the same `/v1/*` endpoints and accumulate per-key request/token usage inside the dashboard.
+You can keep using `ATOMHUB_GATEWAY_TOKEN` as a super-token, but the admin UI can now generate per-client downstream keys on the `下游密钥` page. Those generated bearer keys work against the same `/v1/*` endpoints and accumulate per-key request/token usage inside the dashboard. The list view shows masked values by default, and admins can reveal, copy, or regenerate individual keys from the same page.

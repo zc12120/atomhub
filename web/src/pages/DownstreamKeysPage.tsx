@@ -21,6 +21,8 @@ export default function DownstreamKeysPage(): JSX.Element {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
+  const [revealedTokens, setRevealedTokens] = useState<Record<number, string>>({});
+  const [copiedKeyID, setCopiedKeyID] = useState<number | null>(null);
   const [form, setForm] = useState<CreateDownstreamKeyPayload>(emptyForm);
 
   const loadKeys = async (): Promise<void> => {
@@ -81,6 +83,47 @@ export default function DownstreamKeysPage(): JSX.Element {
     }
   };
 
+  const handleReveal = async (id: number): Promise<string | null> => {
+    setError(null);
+    try {
+      const response = await api.revealDownstreamKey(id);
+      setRevealedTokens((current) => ({ ...current, [id]: response.token }));
+      return response.token;
+    } catch (revealError) {
+      const message = revealError instanceof Error ? revealError.message : '查看下游密钥失败。';
+      setError(message);
+      return null;
+    }
+  };
+
+  const handleCopy = async (item: DownstreamKey): Promise<void> => {
+    setError(null);
+    const token = revealedTokens[item.id] ?? (await handleReveal(item.id));
+    if (!token) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(token);
+      setCopiedKeyID(item.id);
+    } catch (copyError) {
+      const message = copyError instanceof Error ? copyError.message : '复制下游密钥失败。';
+      setError(message);
+    }
+  };
+
+  const handleRegenerate = async (id: number): Promise<void> => {
+    setError(null);
+    try {
+      const response = await api.regenerateDownstreamKey(id);
+      setRevealedTokens((current) => ({ ...current, [id]: response.token }));
+      setCreatedToken(response.token);
+      await loadKeys();
+    } catch (regenerateError) {
+      const message = regenerateError instanceof Error ? regenerateError.message : '重新生成下游密钥失败。';
+      setError(message);
+    }
+  };
+
   return (
     <section className="page-section">
       <header className="page-header">
@@ -128,7 +171,7 @@ export default function DownstreamKeysPage(): JSX.Element {
           <thead>
             <tr>
               <th>名称</th>
-              <th>token 前缀</th>
+              <th>密钥</th>
               <th>状态</th>
               <th>最近使用</th>
               <th>请求数</th>
@@ -142,7 +185,15 @@ export default function DownstreamKeysPage(): JSX.Element {
               items.map((item) => (
                 <tr key={item.id}>
                   <td>{item.name}</td>
-                  <td>{item.token_prefix}</td>
+                  <td>
+                    <div className="token-display-stack">
+                      <span>{item.masked_token}</span>
+                      {revealedTokens[item.id] ? (
+                        <input value={revealedTokens[item.id]} readOnly aria-label={`密钥-${item.id}`} />
+                      ) : null}
+                      {!item.can_reveal ? <span className="muted">旧版密钥需重新生成后才能查看</span> : null}
+                    </div>
+                  </td>
                   <td>{item.enabled ? '启用中' : '已停用'}</td>
                   <td>{formatDateTime(item.last_used_at)}</td>
                   <td>{numberFormatter.format(item.request_count)}</td>
@@ -156,6 +207,29 @@ export default function DownstreamKeysPage(): JSX.Element {
                         onClick={() => void handleToggleEnabled(item)}
                       >
                         {item.enabled ? '停用' : '启用'}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => void handleReveal(item.id)}
+                        disabled={!item.can_reveal}
+                      >
+                        查看密钥
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => void handleCopy(item)}
+                        disabled={!item.can_reveal && !revealedTokens[item.id]}
+                      >
+                        {copiedKeyID === item.id ? '已复制' : '复制密钥'}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => void handleRegenerate(item.id)}
+                      >
+                        重新生成
                       </button>
                       <button
                         type="button"

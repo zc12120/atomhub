@@ -19,13 +19,14 @@ import (
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
 	return config.Config{
-		HTTPAddr:      ":0",
-		DBPath:        filepath.Join(t.TempDir(), "atomhub.db"),
-		SessionSecret: "test-session-secret",
-		SessionTTL:    time.Hour,
-		AdminUsername: "admin",
-		AdminPassword: "admin",
-		GatewayToken:  "gateway-token",
+		HTTPAddr:            ":0",
+		DBPath:              filepath.Join(t.TempDir(), "atomhub.db"),
+		SessionSecret:       "test-session-secret",
+		SessionTTL:          time.Hour,
+		AdminUsername:       "admin",
+		AdminPassword:       "admin",
+		GatewayToken:        "gateway-token",
+		DownstreamKeySecret: "test-downstream-secret",
 	}
 }
 

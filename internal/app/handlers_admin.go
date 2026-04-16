@@ -267,6 +267,42 @@ func (a *App) handleDeleteDownstreamKey(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (a *App) handleRevealDownstreamKey(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseIDPath(w, r, "id")
+	if !ok {
+		return
+	}
+	token, err := a.downstreamKeyStore.Reveal(r.Context(), id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrDownstreamKeyNotFound) {
+			status = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "created before encrypted storage") {
+			status = http.StatusConflict
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, adminDownstreamKeyTokenResponse{ID: id, Token: token})
+}
+
+func (a *App) handleRegenerateDownstreamKey(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseIDPath(w, r, "id")
+	if !ok {
+		return
+	}
+	_, token, err := a.downstreamKeyStore.Regenerate(r.Context(), id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrDownstreamKeyNotFound) {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, adminDownstreamKeyTokenResponse{ID: id, Token: token})
+}
+
 func (a *App) handleProbeKey(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseIDPath(w, r, "id")
 	if !ok {
@@ -504,6 +540,8 @@ func mapAdminDownstreamKey(key types.DownstreamKey) adminDownstreamKeyItem {
 		ID:               key.ID,
 		Name:             key.Name,
 		TokenPrefix:      key.TokenPrefix,
+		MaskedToken:      maskDownstreamToken(key.TokenPrefix),
+		CanReveal:        strings.TrimSpace(key.EncryptedToken) != "",
 		Enabled:          key.Enabled,
 		LastUsedAt:       key.LastUsedAt,
 		RequestCount:     key.RequestCount,
@@ -513,6 +551,14 @@ func mapAdminDownstreamKey(key types.DownstreamKey) adminDownstreamKeyItem {
 		CreatedAt:        key.CreatedAt,
 		UpdatedAt:        key.UpdatedAt,
 	}
+}
+
+func maskDownstreamToken(prefix string) string {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return "••••••••••"
+	}
+	return prefix + "••••••••••"
 }
 
 func downstreamKeyName(id *int64, keys map[int64]types.DownstreamKey) string {

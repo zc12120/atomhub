@@ -150,6 +150,43 @@ func TestAdminDownstreamKeyCRUD(t *testing.T) {
 	if len(listed.Items) != 1 || listed.Items[0].ID != created.Item.ID {
 		t.Fatalf("unexpected list payload: %+v", listed)
 	}
+	if listed.Items[0].MaskedToken == "" || !listed.Items[0].CanReveal {
+		t.Fatalf("expected masked token and reveal support: %+v", listed.Items[0])
+	}
+
+	revealReq := httptest.NewRequest(http.MethodGet, "/admin/downstream-keys/"+itoa(created.Item.ID)+"/token", nil)
+	for _, cookie := range cookies {
+		revealReq.AddCookie(cookie)
+	}
+	revealRec := httptest.NewRecorder()
+	app.Handler.ServeHTTP(revealRec, revealReq)
+	if revealRec.Code != http.StatusOK {
+		t.Fatalf("reveal status = %d body=%s", revealRec.Code, revealRec.Body.String())
+	}
+	var revealed adminDownstreamKeyTokenResponse
+	if err := json.Unmarshal(revealRec.Body.Bytes(), &revealed); err != nil {
+		t.Fatalf("decode reveal payload: %v", err)
+	}
+	if revealed.Token != created.Token || revealed.ID != created.Item.ID {
+		t.Fatalf("unexpected reveal payload: %+v created=%+v", revealed, created)
+	}
+
+	regenerateReq := httptest.NewRequest(http.MethodPost, "/admin/downstream-keys/"+itoa(created.Item.ID)+"/regenerate", nil)
+	for _, cookie := range cookies {
+		regenerateReq.AddCookie(cookie)
+	}
+	regenerateRec := httptest.NewRecorder()
+	app.Handler.ServeHTTP(regenerateRec, regenerateReq)
+	if regenerateRec.Code != http.StatusOK {
+		t.Fatalf("regenerate status = %d body=%s", regenerateRec.Code, regenerateRec.Body.String())
+	}
+	var regenerated adminDownstreamKeyTokenResponse
+	if err := json.Unmarshal(regenerateRec.Body.Bytes(), &regenerated); err != nil {
+		t.Fatalf("decode regenerate payload: %v", err)
+	}
+	if regenerated.Token == "" || regenerated.Token == created.Token || regenerated.ID != created.Item.ID {
+		t.Fatalf("unexpected regenerate payload: %+v created=%+v", regenerated, created)
+	}
 
 	updateReq := httptest.NewRequest(http.MethodPut, "/admin/downstream-keys/"+itoa(created.Item.ID), bytes.NewReader([]byte(`{"name":"client-b","enabled":false}`)))
 	for _, cookie := range cookies {
