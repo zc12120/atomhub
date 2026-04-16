@@ -9,6 +9,34 @@ const emptyForm: CreateKeyPayload = {
   enabled: true
 };
 
+function formatProvider(provider: string): string {
+  switch (provider) {
+    case 'openai':
+      return 'OpenAI';
+    case 'anthropic':
+      return 'Anthropic';
+    case 'gemini':
+      return 'Gemini';
+    default:
+      return provider;
+  }
+}
+
+function formatKeyStatus(status: string): string {
+  switch (status) {
+    case 'healthy':
+      return '正常';
+    case 'degraded':
+      return '异常';
+    case 'cooling_down':
+      return '冷却中';
+    case 'disabled':
+      return '已停用';
+    default:
+      return status;
+  }
+}
+
 export default function KeysPage(): JSX.Element {
   const [items, setItems] = useState<AdminKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,8 +200,8 @@ export default function KeysPage(): JSX.Element {
                 <Fragment key={item.id}>
                   <tr>
                     <td>{item.label}</td>
-                    <td>{item.provider}</td>
-                    <td>{item.status}</td>
+                    <td>{formatProvider(item.provider)}</td>
+                    <td>{formatKeyStatus(item.status)}</td>
                     <td>{item.enabled ? '是' : '否'}</td>
                     <td>{item.last_used_at ?? '—'}</td>
                     <td>{item.last_error ?? '—'}</td>

@@ -6,6 +6,34 @@ interface HealthPageProps {
   data?: HealthResponse;
 }
 
+function formatProvider(provider: string): string {
+  switch (provider) {
+    case 'openai':
+      return 'OpenAI';
+    case 'anthropic':
+      return 'Anthropic';
+    case 'gemini':
+      return 'Gemini';
+    default:
+      return provider;
+  }
+}
+
+function formatKeyStatus(status: string): string {
+  switch (status) {
+    case 'healthy':
+      return '正常';
+    case 'degraded':
+      return '异常';
+    case 'cooling_down':
+      return '冷却中';
+    case 'disabled':
+      return '已停用';
+    default:
+      return status;
+  }
+}
+
 export default function HealthPage({ data }: HealthPageProps): JSX.Element {
   const [health, setHealth] = useState<HealthResponse | null>(data ?? null);
   const [loading, setLoading] = useState(data === undefined);
@@ -81,8 +109,8 @@ export default function HealthPage({ data }: HealthPageProps): JSX.Element {
                   health.keys.map((key) => (
                     <tr key={key.id}>
                       <td>{key.label}</td>
-                      <td>{key.provider}</td>
-                      <td>{key.status}</td>
+                      <td>{formatProvider(key.provider)}</td>
+                      <td>{formatKeyStatus(key.status)}</td>
                       <td>{key.last_error ?? '—'}</td>
                     </tr>
                   ))

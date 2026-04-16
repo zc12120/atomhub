@@ -18,6 +18,33 @@ function formatNumber(value: number): string {
   return numberFormatter.format(value);
 }
 
+function formatProvider(provider?: string): string {
+  switch (provider) {
+    case 'openai':
+      return 'OpenAI';
+    case 'anthropic':
+      return 'Anthropic';
+    case 'gemini':
+      return 'Gemini';
+    case undefined:
+    case '':
+      return '—';
+    default:
+      return provider;
+  }
+}
+
+function formatRequestStatus(status: string): string {
+  switch (status) {
+    case 'ok':
+      return '成功';
+    case 'error':
+      return '错误';
+    default:
+      return status;
+  }
+}
+
 export default function RequestsPage({ data }: RequestsPageProps): JSX.Element {
   const [response, setResponse] = useState<RequestsResponse | null>(data ?? null);
   const [loading, setLoading] = useState(data === undefined);
@@ -203,8 +230,8 @@ export default function RequestsPage({ data }: RequestsPageProps): JSX.Element {
                       <td>{item.created_at}</td>
                       <td>{item.model}</td>
                       <td>{item.key_label ?? `#${item.key_id}`}</td>
-                      <td>{item.provider ?? '—'}</td>
-                      <td>{item.status}</td>
+                      <td>{formatProvider(item.provider)}</td>
+                      <td>{formatRequestStatus(item.status)}</td>
                       <td>{formatNumber(item.latency_ms)} ms</td>
                       <td>{formatNumber(item.total_tokens)}</td>
                       <td>{item.error_message ?? '—'}</td>

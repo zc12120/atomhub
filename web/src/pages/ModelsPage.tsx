@@ -3,6 +3,19 @@ import { api, type AdminModel } from '../api';
 
 const numberFormatter = new Intl.NumberFormat();
 
+function formatProvider(provider: string): string {
+  switch (provider) {
+    case 'openai':
+      return 'OpenAI';
+    case 'anthropic':
+      return 'Anthropic';
+    case 'gemini':
+      return 'Gemini';
+    default:
+      return provider;
+  }
+}
+
 interface ModelsPageProps {
   data?: {
     items: AdminModel[];
@@ -76,7 +89,7 @@ export default function ModelsPage({ data }: ModelsPageProps): JSX.Element {
               items.map((item) => (
                 <tr key={item.provider + ':' + item.model}>
                   <td>{item.model}</td>
-                  <td>{item.provider}</td>
+                  <td>{formatProvider(item.provider)}</td>
                   <td>{numberFormatter.format(item.key_count)}</td>
                   <td>{numberFormatter.format(item.healthy_keys)}</td>
                 </tr>
