@@ -47,6 +47,14 @@ export interface CreateKeyPayload {
   enabled?: boolean;
 }
 
+export interface UpdateKeyPayload {
+  name?: string;
+  provider?: string;
+  base_url?: string;
+  api_key?: string;
+  enabled?: boolean;
+}
+
 export interface KeysResponse {
   items: AdminKey[];
 }
@@ -150,7 +158,7 @@ export const api = {
     });
   },
 
-  updateKey(id: number, payload: CreateKeyPayload): Promise<AdminKey> {
+  updateKey(id: number, payload: UpdateKeyPayload): Promise<AdminKey> {
     return requestJson(`/admin/keys/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload)

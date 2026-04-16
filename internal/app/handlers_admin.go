@@ -83,7 +83,7 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, adminDashboardResponse{
 		Items:   items,
 		Summary: summary,
-		Health: adminHealthSummary{HealthyKeys: overview.Healthy, UnhealthyKeys: overview.Degraded + overview.CoolingDown + overview.Disabled, TotalKeys: overview.Total},
+		Health:  adminHealthSummary{HealthyKeys: overview.Healthy, UnhealthyKeys: overview.Degraded + overview.CoolingDown + overview.Disabled, TotalKeys: overview.Total},
 	})
 }
 
@@ -125,17 +125,25 @@ func (a *App) handleUpdateKey(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var payload adminKeyPayload
+	var payload adminKeyUpdatePayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
 		return
 	}
-	key, err := payload.toUpstreamKey()
+	existing, err := a.keyStore.Get(r.Context(), id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, store.ErrKeyNotFound) {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+	key, err := payload.mergeInto(existing)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	key.ID = id
 	updated, err := a.keyStore.Update(r.Context(), key)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -145,7 +153,15 @@ func (a *App) handleUpdateKey(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, status, map[string]string{"error": err.Error()})
 		return
 	}
-	_ = a.probeService.ProbeKeyByID(r.Context(), updated.ID)
+	if err := a.stateStore.Ensure(r.Context(), updated.ID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	if updated.Enabled {
+		_ = a.probeService.ProbeKeyByID(r.Context(), updated.ID)
+	} else {
+		_ = a.catalog.Rebuild(r.Context())
+	}
 	state, _ := a.stateStore.Get(r.Context(), updated.ID)
 	writeJSON(w, http.StatusOK, mapAdminKey(updated, state, nil))
 }
@@ -200,7 +216,10 @@ func (a *App) handleModels(w http.ResponseWriter, r *http.Request) {
 	for _, key := range keys {
 		keyByID[key.ID] = key
 	}
-	type agg struct { item adminModelItem; seen map[int64]struct{} }
+	type agg struct {
+		item adminModelItem
+		seen map[int64]struct{}
+	}
 	aggByPair := map[string]*agg{}
 	for _, model := range models {
 		key, ok := keyByID[model.KeyID]
@@ -312,11 +331,9 @@ func parseIDPath(w http.ResponseWriter, r *http.Request, name string) (int64, bo
 }
 
 func (p adminKeyPayload) toUpstreamKey() (types.UpstreamKey, error) {
-	provider := types.Provider(strings.TrimSpace(strings.ToLower(p.Provider)))
-	switch provider {
-	case types.ProviderOpenAI, types.ProviderAnthropic, types.ProviderGemini:
-	default:
-		return types.UpstreamKey{}, errors.New("provider must be openai, anthropic, or gemini")
+	provider, err := normalizeProvider(p.Provider)
+	if err != nil {
+		return types.UpstreamKey{}, err
 	}
 	enabled := true
 	if p.Enabled != nil {
@@ -331,14 +348,65 @@ func (p adminKeyPayload) toUpstreamKey() (types.UpstreamKey, error) {
 	}
 	baseURL := strings.TrimSpace(p.BaseURL)
 	if baseURL == "" {
-		switch provider {
-		case types.ProviderOpenAI:
-			baseURL = "https://api.openai.com"
-		case types.ProviderAnthropic:
-			baseURL = "https://api.anthropic.com"
-		case types.ProviderGemini:
-			baseURL = "https://generativelanguage.googleapis.com"
-		}
+		baseURL = defaultBaseURLForProvider(provider)
 	}
 	return types.UpstreamKey{Name: name, Provider: provider, BaseURL: baseURL, APIKey: strings.TrimSpace(p.APIKey), Enabled: enabled}, nil
+}
+
+func (p adminKeyUpdatePayload) mergeInto(existing types.UpstreamKey) (types.UpstreamKey, error) {
+	updated := existing
+	if p.Name != nil {
+		name := strings.TrimSpace(*p.Name)
+		if name == "" {
+			return types.UpstreamKey{}, errors.New("name is required")
+		}
+		updated.Name = name
+	}
+	if p.Provider != nil {
+		provider, err := normalizeProvider(*p.Provider)
+		if err != nil {
+			return types.UpstreamKey{}, err
+		}
+		updated.Provider = provider
+	}
+	if p.BaseURL != nil {
+		updated.BaseURL = strings.TrimSpace(*p.BaseURL)
+	}
+	if p.APIKey != nil {
+		apiKey := strings.TrimSpace(*p.APIKey)
+		if apiKey == "" {
+			return types.UpstreamKey{}, errors.New("api_key is required")
+		}
+		updated.APIKey = apiKey
+	}
+	if p.Enabled != nil {
+		updated.Enabled = *p.Enabled
+	}
+	if strings.TrimSpace(updated.BaseURL) == "" {
+		updated.BaseURL = defaultBaseURLForProvider(updated.Provider)
+	}
+	return updated, nil
+}
+
+func normalizeProvider(raw string) (types.Provider, error) {
+	provider := types.Provider(strings.TrimSpace(strings.ToLower(raw)))
+	switch provider {
+	case types.ProviderOpenAI, types.ProviderAnthropic, types.ProviderGemini:
+		return provider, nil
+	default:
+		return "", errors.New("provider must be openai, anthropic, or gemini")
+	}
+}
+
+func defaultBaseURLForProvider(provider types.Provider) string {
+	switch provider {
+	case types.ProviderOpenAI:
+		return "https://api.openai.com"
+	case types.ProviderAnthropic:
+		return "https://api.anthropic.com"
+	case types.ProviderGemini:
+		return "https://generativelanguage.googleapis.com"
+	default:
+		return ""
+	}
 }

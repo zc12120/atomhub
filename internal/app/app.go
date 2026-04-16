@@ -12,11 +12,11 @@ import (
 	"github.com/zc12120/atomhub/internal/auth"
 	"github.com/zc12120/atomhub/internal/catalog"
 	"github.com/zc12120/atomhub/internal/config"
+	"github.com/zc12120/atomhub/internal/probe"
 	anthropicprovider "github.com/zc12120/atomhub/internal/providers/anthropic"
 	"github.com/zc12120/atomhub/internal/providers/common"
 	geminiprovider "github.com/zc12120/atomhub/internal/providers/gemini"
 	openaiprovider "github.com/zc12120/atomhub/internal/providers/openai"
-	"github.com/zc12120/atomhub/internal/probe"
 	"github.com/zc12120/atomhub/internal/selector"
 	"github.com/zc12120/atomhub/internal/store"
 )

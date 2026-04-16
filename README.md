@@ -6,6 +6,7 @@ AtomHub is a self-hosted AI gateway and admin dashboard.
 - Manages multiple upstream OpenAI / Anthropic / Gemini API keys
 - Probes which models each key supports
 - Exposes a single OpenAI-compatible downstream API
+- Supports both standard and streaming chat completions on the downstream API
 - Load-balances requests across healthy keys that support the same model
 - Cools down failing keys and retries on other eligible keys
 - Persists token usage and shows per-model prompt/completion/total token totals in a web dashboard
@@ -17,14 +18,14 @@ AtomHub is a self-hosted AI gateway and admin dashboard.
 - `POST /v1/chat/completions`
 
 ### Current limitations
-- Streaming responses are not implemented yet
 - The gateway currently focuses on text chat completions
-- Admin UI supports adding, probing, listing, and deleting keys; provider-specific advanced settings are intentionally minimal
+- Anthropic and Gemini streaming use a graceful OpenAI-style SSE fallback built from full upstream responses
+- Admin UI supports adding, editing, enabling/disabling, probing, listing, and deleting keys; provider-specific advanced settings are intentionally minimal
 
 ## Admin UI
 After login, the web UI provides:
 - Dashboard: per-model token usage totals and overall totals
-- Keys: create keys, probe keys, delete keys, and view health/errors
+- Keys: create keys, edit keys, enable/disable keys, probe keys, delete keys, and view health/errors
 - Models: see discovered model pools per provider
 - Health: see healthy/unhealthy key counts and last errors
 

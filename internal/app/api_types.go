@@ -63,6 +63,14 @@ type adminKeyPayload struct {
 	Enabled  *bool  `json:"enabled,omitempty"`
 }
 
+type adminKeyUpdatePayload struct {
+	Name     *string `json:"name,omitempty"`
+	Provider *string `json:"provider,omitempty"`
+	BaseURL  *string `json:"base_url,omitempty"`
+	APIKey   *string `json:"api_key,omitempty"`
+	Enabled  *bool   `json:"enabled,omitempty"`
+}
+
 type adminKeyItem struct {
 	ID         int64      `json:"id"`
 	Provider   string     `json:"provider"`

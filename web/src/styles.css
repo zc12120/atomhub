@@ -261,6 +261,19 @@ select {
   flex-wrap: wrap;
 }
 
+.inline-editor {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+}
+
+.inline-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .danger-button {
   background: #c62145;
 }
